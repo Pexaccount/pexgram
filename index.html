@@ -5,119 +5,115 @@
   <title>Pex匿名全球聊天室</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
+    :root{
+      --glass-bg: rgba(255,255,255,0.06);
+      --glass-strong: rgba(255,255,255,0.10);
+      --accent: linear-gradient(135deg,#7b61ff 0%,#39d7ff 100%);
+      --text: rgba(255,255,255,0.95);
+      --muted: rgba(255,255,255,0.75);
+    }
+
+    html,body{ height:100%; }
     body {
-      font-family: Arial, sans-serif;
-      background: #f0f0f0;
-      margin: 0;
-      padding: 0;
+      margin:0; padding:0; font-family: Inter, 'Segoe UI', Arial;
+      background: radial-gradient(ellipse at 10% 10%, #0f1724 0%, #071028 40%, #0b1220 100%);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      display:flex; align-items:center; justify-content:center; padding:32px;
     }
 
-    #chat {
-      max-width: 800px;
-      margin: 30px auto;
-      padding: 20px;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    #chat{
+      width:100%; max-width:880px; background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border-radius:18px; padding:20px; box-sizing:border-box;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+      backdrop-filter: blur(10px) saturate(120%);
+      -webkit-backdrop-filter: blur(10px) saturate(120%);
+      border: 1px solid rgba(255,255,255,0.06);
+      position:relative;
+      overflow:visible;
     }
 
-    h2 {
-      text-align: center;
-      color: #4A90E2;
-      font-size: 28px;
-      margin-bottom: 20px;
+    h2{ margin:0 0 14px 0; font-weight:600; color:var(--text); display:flex; align-items:center; gap:10px;}
+
+    #messages{
+      background: transparent; height:66vh; overflow-y:auto; padding:18px 18px 140px 18px; border-radius:12px;
+      display:flex; flex-direction:column; gap:12px;
     }
 
-    #messages {
-      background: #fff;
-      height: 60vh;
-      overflow-y: auto;
-      padding: 15px;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-      box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.1);
-      margin-bottom: 15px;
+    .msg{ display:flex; align-items:flex-end; margin-bottom:6px; }
+    .msg.me{ justify-content:flex-end; }
+
+    .bubble{
+      max-width:70%; padding:10px 14px; border-radius:12px; color:var(--text); font-size:15px; line-height:1.35;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.04);
+      backdrop-filter: blur(6px);
     }
 
-    .msg {
-      margin-bottom: 15px;
-      font-size: 16px;
-      line-height: 1.5;
+    .msg.me .bubble{
+      background: linear-gradient(180deg, rgba(59,130,246,0.18), rgba(59,130,246,0.12));
+      border: 1px solid rgba(59,130,246,0.25);
+      color: #fff;
+      border-bottom-right-radius:4px; border-bottom-left-radius:12px; border-top-left-radius:12px; border-top-right-radius:12px;
     }
 
-    .user {
-      font-weight: bold;
-      color: #4A90E2;
+    .meta{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .me .meta{ text-align:right; }
+
+    /* 固定在聊天面板底部的输入区 */
+    #inputBox{
+      position:absolute; left:20px; right:20px; bottom:20px;
+      display:flex; gap:10px; align-items:center; padding:10px; box-sizing:border-box;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:14px; border:1px solid rgba(255,255,255,0.04); z-index:30;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     }
 
-    #inputBox {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    @media (max-width:640px){
+      #chat{ padding:12px; }
+      #inputBox{ left:12px; right:12px; bottom:12px; }
+      #messages{ height:60vh; padding-bottom:180px; }
     }
 
-    #text {
-      flex: 1;
-      padding: 12px 15px;
-      font-size: 16px;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      outline: none;
+    /* small circular icon buttons for attach/record */
+    .icon-btn{
+      width:44px; height:44px; padding:0; display:inline-flex; align-items:center; justify-content:center;
+      border-radius:999px; background: rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.04); color:var(--text);
+      box-shadow: none; font-size:18px;
     }
 
-    #sendBtn, #sendImageBtn, #voiceBtn {
-      padding: 12px 18px;
-      font-size: 16px;
-      background-color: #4A90E2;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background-color 0.3s;
+    .icon-btn.recording{ background: linear-gradient(90deg,#ff5656,#ff9a56); color:#fff; box-shadow: 0 6px 18px rgba(255,86,86,0.18); }
+
+    .bubble img{ max-width:100%; height:auto; border-radius:10px; display:block; }
+    .bubble audio{ width:100%; margin-top:6px; }
+
+    /* textarea / input styles */
+    .text-area-wrap{ flex:1; display:flex; flex-direction:column; gap:6px; }
+    .input-label{ font-size:12px; color:var(--muted); margin-left:6px; }
+    textarea#text{ width:100%; min-height:46px; max-height:140px; resize:none; padding:12px 16px; font-size:15px; border-radius:12px;
+      border:1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); color:var(--text); outline:none;
+      transition: box-shadow .12s ease, border-color .12s ease, transform .06s ease; line-height:1.35;
+    }
+    textarea#text:focus{ box-shadow: 0 8px 30px rgba(59,130,246,0.14); border-color: rgba(59,130,246,0.28); transform: translateY(-1px); }
+
+    #text{ flex:1; padding:12px 16px; font-size:16px; border-radius:999px; border:none; outline:none;
+      background: rgba(255,255,255,0.03); color:var(--text); box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+      backdrop-filter: blur(6px);
     }
 
-    #sendBtn:hover, #sendImageBtn:hover, #voiceBtn:hover {
-      background-color: #357ABD;
+    #text::placeholder{ color: rgba(255,255,255,0.5); }
+
+    button{ padding:10px 18px; font-size:16px; cursor:pointer; border-radius:999px; border:none; color:#fff;
+      background: var(--accent); box-shadow: 0 6px 18px rgba(59,130,246,0.18); transition:transform .12s ease, box-shadow .12s ease;
     }
 
-    #sendBtn:active, #sendImageBtn:active, #voiceBtn:active {
-      background-color: #2E6DA4;
-    }
+    button:active{ transform:translateY(1px); }
+    button:disabled{ opacity:0.5; transform:none; cursor:default; }
 
-    #inputBox input, #inputBox button {
-      margin-left: 10px;
-    }
-
-    /* 滚动条样式 */
-    #messages::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    #messages::-webkit-scrollbar-thumb {
-      background-color: #4A90E2;
-      border-radius: 10px;
-    }
-
-    #messages::-webkit-scrollbar-track {
-      background-color: #f0f0f0;
-      border-radius: 10px;
-    }
-
-    /* 语音按钮样式 */
-    #voiceBtn {
-      background-color: #6BBF47;
-    }
-    #voiceBtn:hover {
-      background-color: #5A9D3F;
-    }
-
-    /* 图片上传按钮样式 */
-    #sendImageBtn {
-      background-color: #FFC107;
-    }
-    #sendImageBtn:hover {
-      background-color: #E0A800;
-    }
+    /* Scrollbar styling */
+    #messages::-webkit-scrollbar{ width:10px; }
+    #messages::-webkit-scrollbar-thumb{ background: rgba(255,255,255,0.04); border-radius:10px; }
   </style>
 </head>
 <body>
@@ -127,11 +123,17 @@
   <div id="messages"></div>
 
   <div id="inputBox">
-    <input id="text" placeholder="输入消息..." maxlength="100">
+    <button id="imgBtn" class="icon-btn" title="发送图片">📷</button>
+    <input id="imageInput" type="file" accept="image/*" style="display:none">
+
+    <button id="recBtn" class="icon-btn" title="录音/停止">🎤</button>
+
+    <div class="text-area-wrap">
+      <label class="input-label" for="text">消息</label>
+      <textarea id="text" rows="1" placeholder="输入消息... (Enter 发送，Shift+Enter 换行)" maxlength="1000"></textarea>
+    </div>
+
     <button id="sendBtn">发送</button>
-    <input type="file" id="imageInput" style="display:none" accept="image/*">
-    <button id="sendImageBtn">发送图片</button>
-    <button id="voiceBtn">语音输入</button>
   </div>
 </div>
 
@@ -154,94 +156,159 @@
   const db = getDatabase(app);
   const messagesRef = ref(db, 'messages');
 
-  let username = prompt("请输入您的用户名：") || "匿名_" + Math.floor(Math.random() * 10000);
+  const username = "匿名_" + Math.floor(Math.random() * 10000);
 
-  // 发送文本消息
   const sendBtn = document.getElementById("sendBtn");
   const textInput = document.getElementById("text");
+  const messagesEl = document.getElementById("messages");
+  const imgBtn = document.getElementById('imgBtn');
+  const imageInput = document.getElementById('imageInput');
+  const recBtn = document.getElementById('recBtn');
 
-  sendBtn.addEventListener("click", () => {
+  let mediaRecorder = null;
+  let recordingChunks = [];
+
+  function createMessageElement(msg){
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg';
+    if(msg.user === username) wrapper.classList.add('me');
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = msg.user;
+    // 根据消息类型创建内容节点（text/image/audio）
+    let contentEl = null;
+    if(msg.type === 'image'){
+      const img = document.createElement('img');
+      img.src = msg.data;
+      img.alt = msg.text || 'image';
+      contentEl = img;
+    } else if(msg.type === 'audio'){
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.src = msg.data;
+      contentEl = audio;
+    } else {
+      const text = document.createElement('div');
+      text.className = 'text';
+      text.textContent = msg.text || '';
+      contentEl = text;
+    }
+
+    // 结构： 若为自己，显示气泡（靠右）；否则在气泡上方显示用户名
+    if(msg.user === username){
+      if(contentEl) bubble.appendChild(contentEl);
+      wrapper.appendChild(bubble);
+    } else {
+      wrapper.appendChild(meta);
+      if(contentEl) bubble.appendChild(contentEl);
+      wrapper.appendChild(bubble);
+    }
+
+    return wrapper;
+  }
+
+  function sendMessage(){
     const text = textInput.value.trim();
-    if (!text) return;
+    if(!text) return;
+    push(messagesRef, { user: username, text: text, time: serverTimestamp() });
+    textInput.value = '';
+    // reset textarea height after send
+    autoResizeTextarea();
+  }
 
-    push(messagesRef, {
-      user: username,
-      text: text,
-      time: serverTimestamp()
-    });
-
-    textInput.value = "";
-  });
-
-  // 发送图片
-  const sendImageBtn = document.getElementById("sendImageBtn");
-  const imageInput = document.getElementById("imageInput");
-
-  sendImageBtn.addEventListener("click", () => {
-    imageInput.click();
-  });
-
-  imageInput.addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = function (event) {
-        push(messagesRef, {
-          user: username,
-          image: event.target.result,
-          time: serverTimestamp()
-        });
-      };
-      reader.readAsDataURL(file);
+  sendBtn.addEventListener('click', sendMessage);
+  textInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      sendMessage();
     }
   });
 
-  // 语音输入
-  const voiceBtn = document.getElementById("voiceBtn");
-
-  voiceBtn.addEventListener("click", () => {
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.lang = 'zh-CN';
-    recognition.start();
-
-    recognition.onresult = function(event) {
-      const transcript = event.results[0][0].transcript;
-      textInput.value = transcript;
+  // 图片选择并发送（转为 DataURL）
+  imgBtn.addEventListener('click', () => imageInput.click());
+  imageInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      push(messagesRef, { user: username, type: 'image', data: dataUrl, text: file.name, time: serverTimestamp() });
+      imageInput.value = '';
     };
-
-    recognition.onerror = function(event) {
-      console.error("语音识别错误: ", event.error);
-    };
+    reader.readAsDataURL(file);
   });
 
-  // 实时接收消息
-  const recentMessagesQuery = query(messagesRef, limitToLast(100));
+  // 录音：开始/停止，使用 MediaRecorder -> DataURL
+  recBtn.addEventListener('click', async () => {
+    if(mediaRecorder && mediaRecorder.state === 'recording'){
+      // stop
+      mediaRecorder.stop();
+      recBtn.classList.remove('recording');
+      recBtn.textContent = '🎤';
+      return;
+    }
+
+    // start recording
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      alert('当前浏览器不支持录音功能');
+      return;
+    }
+
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = (ev) => { if(ev.data && ev.data.size) recordingChunks.push(ev.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordingChunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result;
+          push(messagesRef, { user: username, type: 'audio', data: dataUrl, time: serverTimestamp() });
+        };
+        reader.readAsDataURL(blob);
+        // stop all tracks
+        stream.getTracks().forEach(t=>t.stop());
+      };
+
+      mediaRecorder.start();
+      recBtn.classList.add('recording');
+      recBtn.textContent = '●';
+    } catch(err){
+      console.error(err);
+      alert('无法访问麦克风: ' + err.message);
+    }
+  });
+
+  // 自动伸缩 textarea
+  function autoResizeTextarea(){
+    textInput.style.height = 'auto';
+    const max = 140; // px
+    const newH = Math.min(textInput.scrollHeight, max);
+    textInput.style.height = newH + 'px';
+  }
+
+  textInput.addEventListener('input', () => {
+    autoResizeTextarea();
+    // 当用户输入时向上滚动消息区，保持最后消息可见
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
+  // 初始化 textarea 高度
+  setTimeout(autoResizeTextarea, 50);
+
+  const recentMessagesQuery = query(messagesRef, limitToLast(200));
 
   onChildAdded(recentMessagesQuery, (snapshot) => {
     const msg = snapshot.val();
-    const div = document.createElement("div");
-    div.className = "msg";
-    if (msg.text) {
-      div.innerHTML = `<span class="user">${msg.user}</span>: ${msg.text}`;
-    } else if (msg.image) {
-      div.innerHTML = `<span class="user">${msg.user}</span>: <img src="${msg.image}" style="max-width: 100px; max-height: 100px;">`;
-    }
-    document.getElementById("messages").appendChild(div);
-    document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
-
-    // @功能
-    const userRegex = new RegExp(`@${username}`, 'g');
-    if (userRegex.test(msg.text)) {
-      new Notification('你被提到了', {
-        body: `${msg.user}: ${msg.text}`
-      });
-    }
+    const el = createMessageElement(msg);
+    messagesEl.appendChild(el);
+    // 确保新消息可见（考虑底部 padding）
+    el.scrollIntoView({ block: 'nearest' });
   });
-
-  // 消息通知权限请求
-  if (Notification.permission !== 'granted') {
-    Notification.requestPermission();
-  }
 </script>
 
 </body>
