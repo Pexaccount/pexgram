@@ -801,23 +801,89 @@
 <div class="image-modal" id="imageModal">
   <img id="modalImage" src="" alt="放大图片">
 </div>
+<script>
+  // === 本地存储 DB（不需要后台）===
+  class LocalDB {
+    constructor() {
+      this.users = this.loadJSON('users', {});
+      this.messages = this.loadJSON('messages', {});
+      this.friendships = this.loadJSON('friendships', {});
+    }
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-  import { getDatabase, ref, push, onChildAdded, set, get, update, query, limitToLast } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
+    loadJSON(key, defaultValue) {
+      const data = localStorage.getItem(`pexgram_${key}`);
+      return data ? JSON.parse(data) : defaultValue;
+    }
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAlOYUdwcNWWueaj7X9RdzzkAk_r-_JWL8",
-    authDomain: "pexchatweb.firebaseapp.com",
-    databaseURL: "https://pexchatweb-default-rtdb.firebaseio.com",
-    projectId: "pexchatweb",
-    storageBucket: "pexchatweb.firebasestorage.app",
-    messagingSenderId: "157034955766",
-    appId: "1:157034955766:web:076f39819c081d73b8fdd7"
-  };
+    saveJSON(key, data) {
+      localStorage.setItem(`pexgram_${key}`, JSON.stringify(data));
+    }
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+    // 用户操作
+    addUser(id, user) {
+      this.users[id] = { ...user, created_at: Date.now() };
+      this.saveJSON('users', this.users);
+    }
+
+    getUser(id) {
+      return this.users[id];
+    }
+
+    getUserByUsername(username) {
+      return Object.values(this.users).find(u => u.username === username);
+    }
+
+    updateUser(id, updates) {
+      if (this.users[id]) {
+        this.users[id] = { ...this.users[id], ...updates };
+        this.saveJSON('users', this.users);
+      }
+    }
+
+    // 消息操作
+    addMessage(msg) {
+      const id = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      this.messages[id] = { ...msg, id, created_at: Date.now() };
+      this.saveJSON('messages', this.messages);
+      return id;
+    }
+
+    getMessages(chatId) {
+      return Object.values(this.messages)
+        .filter(m => m.chat_id === chatId)
+        .sort((a, b) => a.created_at - b.created_at);
+    }
+
+    // 好友操作
+    addFriendship(userId, friendId, status = 'pending') {
+      const key = [userId, friendId].sort().join('_');
+      this.friendships[key] = { user_id: userId, friend_id: friendId, status, created_at: Date.now() };
+      this.saveJSON('friendships', this.friendships);
+    }
+
+    getFriendships(userId, status) {
+      return Object.values(this.friendships).filter(f => {
+        const matches = (f.user_id === userId || f.friend_id === userId) && f.status === status;
+        return matches;
+      });
+    }
+
+    updateFriendship(userId, friendId, status) {
+      const key = [userId, friendId].sort().join('_');
+      if (this.friendships[key]) {
+        this.friendships[key].status = status;
+        this.saveJSON('friendships', this.friendships);
+      }
+    }
+
+    deleteFriendship(userId, friendId) {
+      const key = [userId, friendId].sort().join('_');
+      delete this.friendships[key];
+      this.saveJSON('friendships', this.friendships);
+    }
+  }
+
+  const db = new LocalDB();
 
   // === 状态管理 ===
   let currentUser = null; // { uid, username, avatar, isAnonymous }
@@ -863,6 +929,7 @@
 
   // === 移动端菜单按钮 ===
   const menuBtn = document.getElementById('menuBtn');
+  const isMobile = window.innerWidth <= 640;
 
   function updateMenuButton() {
     const isSmall = window.innerWidth <= 640;
@@ -887,7 +954,7 @@
     });
   }
 
-  // 点击消息区关闭侧边栏
+  // 点击消息区或其他地方关闭侧边栏
   messagesArea.addEventListener('click', () => {
     const sidebar = document.querySelector('.left-sidebar');
     if (sidebar && window.innerWidth <= 640) {
@@ -938,33 +1005,29 @@
     }
 
     try {
-      const usersRef = ref(db, 'users');
-      const snapshot = await get(usersRef);
-      const users = snapshot.val() || {};
-
-      for (const uid in users) {
-        if (users[uid].username === username) {
-          msg.textContent = '用户名已被注册';
-          return;
-        }
+      // 检查用户名是否已存在
+      if (db.getUserByUsername(username)) {
+        msg.textContent = '用户名已被注册';
+        return;
       }
 
       const uid = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       const passwordHash = btoa(username + ':' + password);
 
-      await set(ref(db, `users/${uid}`), {
+      db.addUser(uid, {
         username,
-        passwordHash,
-        avatar: '👤',
-        friends: [],
-        createdAt: Date.now()
+        password_hash: passwordHash,
+        avatar: '👤'
       });
 
       msg.textContent = '注册成功！请登录';
+      msg.style.color = '#39d7ff';
       setTimeout(() => {
         document.querySelector('[data-mode="login"]').click();
         document.getElementById('loginUsername').value = username;
         document.getElementById('loginPassword').value = '';
+        msg.style.color = 'var(--danger)';
+        msg.textContent = '';
       }, 1000);
     } catch (err) {
       msg.textContent = '注册失败：' + err.message;
@@ -982,27 +1045,24 @@
     }
 
     try {
-      const usersRef = ref(db, 'users');
-      const snapshot = await get(usersRef);
-      const users = snapshot.val() || {};
-
-      let foundUser = null;
-      for (const uid in users) {
-        if (users[uid].username === username) {
-          const expectedHash = btoa(username + ':' + password);
-          if (users[uid].passwordHash === expectedHash) {
-            foundUser = { uid, ...users[uid] };
-          }
-          break;
-        }
-      }
-
-      if (!foundUser) {
+      const user = db.getUserByUsername(username);
+      if (!user) {
         msg.textContent = '用户名或密码错误';
         return;
       }
 
-      currentUser = { uid: foundUser.uid, username: foundUser.username, avatar: foundUser.avatar, isAnonymous: false };
+      const expectedHash = btoa(username + ':' + password);
+      if (user.password_hash !== expectedHash) {
+        msg.textContent = '用户名或密码错误';
+        return;
+      }
+
+      currentUser = { 
+        uid: Object.keys(db.users).find(id => db.users[id].username === username),
+        username: user.username, 
+        avatar: user.avatar || '👤', 
+        isAnonymous: false 
+      };
       enterChat();
     } catch (err) {
       msg.textContent = '登录失败：' + err.message;
@@ -1030,28 +1090,21 @@
     }
 
     try {
-      const usersRef = ref(db, 'users');
-      const snapshot = await get(usersRef);
-      const users = snapshot.val() || {};
-
-      let foundUser = null;
-      for (const uid in users) {
-        if (users[uid].username === username) {
-          const expectedHash = btoa(username + ':' + oldPassword);
-          if (users[uid].passwordHash === expectedHash) {
-            foundUser = { uid, ...users[uid] };
-          }
-          break;
-        }
+      const user = db.getUserByUsername(username);
+      if (!user) {
+        msg.textContent = '用户名或旧密码错误';
+        return;
       }
 
-      if (!foundUser) {
+      const expectedHash = btoa(username + ':' + oldPassword);
+      if (user.password_hash !== expectedHash) {
         msg.textContent = '用户名或旧密码错误';
         return;
       }
 
       const newHash = btoa(username + ':' + newPassword);
-      await update(ref(db, `users/${foundUser.uid}`), { passwordHash: newHash });
+      const uid = Object.keys(db.users).find(id => db.users[id].username === username);
+      db.updateUser(uid, { password_hash: newHash });
 
       msg.textContent = '密码修改成功！';
       msg.style.color = '#39d7ff';
@@ -1122,31 +1175,10 @@
     chatTitle.textContent = '全球聊天';
     chatInfo.textContent = '所有用户实时聊天';
 
-    // 先获取所有历史消息
-    const messagesRef = ref(db, 'chats/global/messages');
-    get(messagesRef).then(snapshot => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        // 按时间排序
-        const sorted = Object.entries(data)
-          .map(([key, val]) => ({ key, ...val }))
-          .sort((a, b) => (a.time || 0) - (b.time || 0));
-        
-        sorted.forEach(msg => {
-          appendMessage(msg, msg.key);
-          displayedMsgKeys.add(msg.key);
-        });
-      }
-      
-      // 然后监听新消息
-      onChildAdded(ref(db, 'chats/global/messages'), (snapshot) => {
-        const key = snapshot.key;
-        if (!displayedMsgKeys.has(key)) {
-          displayedMsgKeys.add(key);
-          const msg = snapshot.val();
-          appendMessage(msg, key);
-        }
-      });
+    const messages = db.getMessages('global');
+    messages.forEach(msg => {
+      appendMessage(msg, msg.id);
+      displayedMsgKeys.add(msg.id);
     });
   }
 
@@ -1154,7 +1186,7 @@
     if (!msg) return;
 
     const div = document.createElement('div');
-    div.className = 'msg' + (msg.uid === currentUser.uid ? ' me' : '');
+    div.className = 'msg' + (msg.user_id === currentUser.uid ? ' me' : '');
     
     const bubbleDiv = document.createElement('div');
     bubbleDiv.className = 'msg-bubble';
@@ -1176,18 +1208,19 @@
       audio.style.width = '100%';
       audio.style.maxWidth = 'none';
       bubbleDiv.appendChild(audio);
-    } else if (msg.type === 'file' && msg.fileUrl) {
+    } else if (msg.type === 'file' && msg.file_url) {
       const link = document.createElement('a');
-      link.href = msg.fileUrl;
-      link.textContent = msg.fileName || '下载文件';
+      link.href = msg.file_url;
+      link.textContent = msg.file_name || '下载文件';
       link.target = '_blank';
+      link.style.wordBreak = 'break-all';
       bubbleDiv.appendChild(link);
     } else {
-      bubbleDiv.textContent = msg.text || '';
+      bubbleDiv.textContent = msg.content || '';
     }
 
     // 结构：如果是别人的消息，先显示用户名，再显示气泡；自己的消息只显示气泡
-    if (msg.uid !== currentUser.uid) {
+    if (msg.user_id !== currentUser.uid) {
       const metaDiv = document.createElement('div');
       metaDiv.className = 'msg-meta';
       metaDiv.textContent = msg.username || '未知用户';
@@ -1210,13 +1243,20 @@
     const text = msgInput.value.trim();
     if (!text) return;
 
-    push(ref(db, `chats/${currentChatId}/messages`), {
-      uid: currentUser.uid,
+    const msgId = db.addMessage({
+      chat_id: currentChatId,
+      user_id: currentUser.uid,
       username: currentUser.username,
-      text,
       type: 'text',
-      time: Date.now()
+      content: text
     });
+
+    // 立即显示消息
+    const msg = db.messages[msgId];
+    if (!displayedMsgKeys.has(msgId)) {
+      displayedMsgKeys.add(msgId);
+      appendMessage(msg, msgId);
+    }
 
     msgInput.value = '';
     autoResizeInput();
@@ -1239,13 +1279,19 @@
 
     const reader = new FileReader();
     reader.onload = () => {
-      push(ref(db, `chats/${currentChatId}/messages`), {
-        uid: currentUser.uid,
+      const msgId = db.addMessage({
+        chat_id: currentChatId,
+        user_id: currentUser.uid,
         username: currentUser.username,
         type: 'image',
-        data: reader.result,
-        time: Date.now()
+        data: reader.result
       });
+
+      const msg = db.messages[msgId];
+      if (!displayedMsgKeys.has(msgId)) {
+        displayedMsgKeys.add(msgId);
+        appendMessage(msg, msgId);
+      }
       imgInput.value = '';
     };
     reader.readAsDataURL(file);
@@ -1259,14 +1305,20 @@
 
     const reader = new FileReader();
     reader.onload = () => {
-      push(ref(db, `chats/${currentChatId}/messages`), {
-        uid: currentUser.uid,
+      const msgId = db.addMessage({
+        chat_id: currentChatId,
+        user_id: currentUser.uid,
         username: currentUser.username,
         type: 'file',
-        fileUrl: reader.result,
-        fileName: file.name,
-        time: Date.now()
+        file_url: reader.result,
+        file_name: file.name
       });
+
+      const msg = db.messages[msgId];
+      if (!displayedMsgKeys.has(msgId)) {
+        displayedMsgKeys.add(msgId);
+        appendMessage(msg, msgId);
+      }
       fileInput.value = '';
     };
     reader.readAsDataURL(file);
@@ -1276,50 +1328,41 @@
   function loadFriends() {
     if (currentUser.isAnonymous) return;
 
-    const userRef = ref(db, `users/${currentUser.uid}`);
-    get(userRef).then(snapshot => {
-      const userData = snapshot.val();
-      const friends = userData?.friends || [];
+    friendsList.innerHTML = '';
+    
+    const friendships = db.getFriendships(currentUser.uid, 'accepted');
+    friendships.forEach(f => {
+      const friendId = f.user_id === currentUser.uid ? f.friend_id : f.user_id;
+      const friend = db.getUser(friendId);
+      if (!friend) return;
 
-      friendsList.innerHTML = '';
-      friends.forEach(friendId => {
-        get(ref(db, `users/${friendId}`)).then(friendSnapshot => {
-          if (!friendSnapshot.exists()) return;
-          const friend = friendSnapshot.val();
+      const div = document.createElement('div');
+      div.className = 'friend-item';
+      
+      const avatarDiv = document.createElement('div');
+      avatarDiv.className = 'avatar-sm';
+      
+      const isDataUrl = typeof friend.avatar === 'string' && /^(data:)[\w/+.-]+;base64,/.test(friend.avatar);
+      if (isDataUrl) {
+        avatarDiv.style.backgroundImage = `url(${friend.avatar})`;
+        avatarDiv.style.backgroundSize = 'cover';
+        avatarDiv.style.backgroundRepeat = 'no-repeat';
+        avatarDiv.textContent = '';
+      } else {
+        avatarDiv.style.backgroundImage = 'none';
+        avatarDiv.style.background = 'linear-gradient(135deg, #7b61ff, #39d7ff)';
+        avatarDiv.textContent = friend.avatar || '👤';
+      }
+      
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'friend-info';
+      infoDiv.innerHTML = `<div class="friend-name">${friend.username}</div>`;
+      
+      div.appendChild(avatarDiv);
+      div.appendChild(infoDiv);
 
-          const div = document.createElement('div');
-          div.className = 'friend-item';
-          
-          // 创建头像元素
-          const avatarDiv = document.createElement('div');
-          avatarDiv.className = 'avatar-sm';
-          
-              // 更严格地检测 data URL（避免被当作文本插入）
-              const isDataUrl = typeof friend.avatar === 'string' && /^(data:)[\w/+.-]+;base64,/.test(friend.avatar);
-              if (isDataUrl) {
-                // 是图片数据，设置为背景并清除文本内容
-                avatarDiv.style.backgroundImage = `url(${friend.avatar})`;
-                avatarDiv.style.backgroundSize = 'cover';
-                avatarDiv.style.backgroundRepeat = 'no-repeat';
-                avatarDiv.textContent = '';
-              } else {
-                // 是 emoji 或文字，使用渐变背景并显示文本
-                avatarDiv.style.backgroundImage = 'none';
-                avatarDiv.style.background = 'linear-gradient(135deg, #7b61ff, #39d7ff)';
-                avatarDiv.textContent = friend.avatar || '👤';
-              }
-          
-          const infoDiv = document.createElement('div');
-          infoDiv.className = 'friend-info';
-          infoDiv.innerHTML = `<div class="friend-name">${friend.username}</div>`;
-          
-          div.appendChild(avatarDiv);
-          div.appendChild(infoDiv);
-
-          div.addEventListener('click', () => openChat(friendId, friend.username));
-          friendsList.appendChild(div);
-        });
-      });
+      div.addEventListener('click', () => openChat(friendId, friend.username));
+      friendsList.appendChild(div);
     });
   }
 
@@ -1332,30 +1375,10 @@
     messagesArea.innerHTML = '';
     displayedMsgKeys.clear();
     
-    // 先加载历史消息
-    const messagesRef = ref(db, `chats/${chatId}/messages`);
-    get(messagesRef).then(snapshot => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const sorted = Object.entries(data)
-          .map(([key, val]) => ({ key, ...val }))
-          .sort((a, b) => (a.time || 0) - (b.time || 0));
-        
-        sorted.forEach(msg => {
-          appendMessage(msg, msg.key);
-          displayedMsgKeys.add(msg.key);
-        });
-      }
-      
-      // 监听新消息
-      onChildAdded(ref(db, `chats/${chatId}/messages`), (snapshot) => {
-        const key = snapshot.key;
-        if (!displayedMsgKeys.has(key)) {
-          displayedMsgKeys.add(key);
-          const msg = snapshot.val();
-          appendMessage(msg, key);
-        }
-      });
+    const messages = db.getMessages(chatId);
+    messages.forEach(msg => {
+      appendMessage(msg, msg.id);
+      displayedMsgKeys.add(msg.id);
     });
   }
 
@@ -1363,136 +1386,57 @@
     const friendUsername = prompt('输入好友用户名：');
     if (!friendUsername) return;
 
-    get(ref(db, 'users')).then(snapshot => {
-      const users = snapshot.val() || {};
-      let friendId = null;
+    const friend = db.getUserByUsername(friendUsername);
+    if (!friend) {
+      alert('用户不存在');
+      return;
+    }
 
-      for (const uid in users) {
-        if (users[uid].username === friendUsername) {
-          friendId = uid;
-          break;
-        }
+    const friendId = Object.keys(db.users).find(id => db.users[id].username === friendUsername);
+
+    if (friendId === currentUser.uid) {
+      alert('不能添加自己');
+      return;
+    }
+
+    // 检查好友关系
+    const existing = db.getFriendships(currentUser.uid, 'accepted')
+      .concat(db.getFriendships(currentUser.uid, 'pending'))
+      .find(f => (f.user_id === friendId || f.friend_id === friendId));
+
+    if (existing) {
+      if (existing.status === 'accepted') {
+        alert('已是好友');
+      } else {
+        alert('已发送申请，请等待对方同意');
       }
+      return;
+    }
 
-      if (!friendId) {
-        alert('用户不存在');
-        return;
-      }
-
-      if (friendId === currentUser.uid) {
-        alert('不能添加自己');
-        return;
-      }
-
-      // 检查是否已是好友
-      get(ref(db, `users/${currentUser.uid}`)).then(snapshot => {
-        const userData = snapshot.val();
-        const friends = userData?.friends || [];
-
-        if (friends.includes(friendId)) {
-          alert('已是好友');
-          return;
-        }
-
-        // 发送好友申请
-        const requests = userData?.friendRequests || [];
-        if (requests.includes(friendId)) {
-          alert('已发送申请，请等待对方同意');
-          return;
-        }
-
-        requests.push(friendId);
-        update(ref(db, `users/${currentUser.uid}`), { friendRequests: requests });
-
-        // 同时在对方的待收列表中添加
-        get(ref(db, `users/${friendId}`)).then(friendSnapshot => {
-          const friendData = friendSnapshot.val();
-          const pendingRequests = friendData?.pendingFriendRequests || [];
-          if (!pendingRequests.includes(currentUser.uid)) {
-            pendingRequests.push(currentUser.uid);
-            update(ref(db, `users/${friendId}`), { pendingFriendRequests: pendingRequests });
-          }
-        });
-
-        alert('申请已发送！');
-      });
-    });
+    // 发送好友申请
+    db.addFriendship(currentUser.uid, friendId, 'pending');
+    alert('申请已发送！');
   });
 
   // === 加载待收的好友申请 ===
   function loadPendingRequests() {
     if (currentUser.isAnonymous) return;
 
-    const userRef = ref(db, `users/${currentUser.uid}`);
-    get(userRef).then(snapshot => {
-      const userData = snapshot.val();
-      const pending = userData?.pendingFriendRequests || [];
+    const requests = db.getFriendships(currentUser.uid, 'pending')
+      .filter(f => f.friend_id === currentUser.uid);
 
-      if (pending.length === 0) return;
+    requests.forEach(req => {
+      const requester = db.getUser(req.user_id);
+      if (!requester) return;
 
-      // 创建一个待审批列表容器（可选）
-      pending.forEach(requesterId => {
-        get(ref(db, `users/${requesterId}`)).then(requesterSnapshot => {
-          if (!requesterSnapshot.exists()) return;
-          const requester = requesterSnapshot.val();
-
-          // 弹出确认对话框
-          const accept = confirm(`${requester.username} 想添加你为好友，是否同意？`);
-          
-          if (accept) {
-            // 同意：双方都加入好友列表
-            get(ref(db, `users/${currentUser.uid}`)).then(mySnapshot => {
-              const myData = mySnapshot.val();
-              const myFriends = myData?.friends || [];
-              const myPending = myData?.pendingFriendRequests || [];
-
-              if (!myFriends.includes(requesterId)) {
-                myFriends.push(requesterId);
-              }
-              myPending.splice(myPending.indexOf(requesterId), 1);
-
-              update(ref(db, `users/${currentUser.uid}`), {
-                friends: myFriends,
-                pendingFriendRequests: myPending
-              });
-            });
-
-            // 更新对方
-            get(ref(db, `users/${requesterId}`)).then(requesterSnapshot2 => {
-              const requesterData = requesterSnapshot2.val();
-              const requesterFriends = requesterData?.friends || [];
-              const requesterSent = requesterData?.friendRequests || [];
-
-              if (!requesterFriends.includes(currentUser.uid)) {
-                requesterFriends.push(currentUser.uid);
-              }
-              requesterSent.splice(requesterSent.indexOf(currentUser.uid), 1);
-
-              update(ref(db, `users/${requesterId}`), {
-                friends: requesterFriends,
-                friendRequests: requesterSent
-              });
-            });
-
-            loadFriends();
-          } else {
-            // 拒绝
-            get(ref(db, `users/${currentUser.uid}`)).then(mySnapshot => {
-              const myData = mySnapshot.val();
-              const myPending = myData?.pendingFriendRequests || [];
-              myPending.splice(myPending.indexOf(requesterId), 1);
-              update(ref(db, `users/${currentUser.uid}`), { pendingFriendRequests: myPending });
-            });
-
-            get(ref(db, `users/${requesterId}`)).then(requesterSnapshot2 => {
-              const requesterData = requesterSnapshot2.val();
-              const requesterSent = requesterData?.friendRequests || [];
-              requesterSent.splice(requesterSent.indexOf(currentUser.uid), 1);
-              update(ref(db, `users/${requesterId}`), { friendRequests: requesterSent });
-            });
-          }
-        });
-      });
+      const accept = confirm(`${requester.username} 想添加你为好友，是否同意？`);
+      
+      if (accept) {
+        db.updateFriendship(req.user_id, currentUser.uid, 'accepted');
+        loadFriends();
+      } else {
+        db.deleteFriendship(req.user_id, currentUser.uid);
+      }
     });
   }
 
@@ -1518,11 +1462,9 @@
       userAvatar.style.backgroundImage = `url(${dataUrl})`;
       userAvatar.style.backgroundSize = 'cover';
 
-      // 更新到数据库
-      update(ref(db, `users/${currentUser.uid}`), { avatar: dataUrl });
+      // 更新到本地存储
+      db.updateUser(currentUser.uid, { avatar: dataUrl });
       currentUser.avatar = dataUrl;
-      
-      // 更新本地存储
       localStorage.setItem('pexgram_user', JSON.stringify(currentUser));
     };
     reader.readAsDataURL(file);
@@ -1657,13 +1599,19 @@
 
         const reader = new FileReader();
         reader.onload = () => {
-          push(ref(db, `chats/${currentChatId}/messages`), {
-            uid: currentUser.uid,
+          const msgId = db.addMessage({
+            chat_id: currentChatId,
+            user_id: currentUser.uid,
             username: currentUser.username,
             type: 'audio',
-            data: reader.result,
-            time: Date.now()
+            data: reader.result
           });
+
+          const msg = db.messages[msgId];
+          if (!displayedMsgKeys.has(msgId)) {
+            displayedMsgKeys.add(msgId);
+            appendMessage(msg, msgId);
+          }
         };
         reader.onerror = () => {
           alert('录音转换失败');
