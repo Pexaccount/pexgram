@@ -164,6 +164,9 @@
     .friend-item:hover { background: rgba(255, 255, 255, 0.05); }
     .friend-item.active { background: rgba(59, 130, 246, 0.1); border-left-color: #39d7ff; }
     .friend-item .avatar-sm { width: 32px; height: 32px; border-radius: 50%; background: #7b61ff; flex-shrink: 0; }
+    .friend-item .avatar-sm { display: flex; align-items: center; justify-content: center; overflow: hidden; color: #fff; }
+    .friend-info { min-width: 0; }
+    .friend-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .friend-info { flex: 1; min-width: 0; }
     .friend-name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -889,16 +892,20 @@
           const avatarDiv = document.createElement('div');
           avatarDiv.className = 'avatar-sm';
           
-          if (friend.avatar && friend.avatar.startsWith('data:')) {
-            // 是图片数据，设置为背景
-            avatarDiv.style.backgroundImage = `url(${friend.avatar})`;
-            avatarDiv.style.backgroundSize = 'cover';
-            avatarDiv.textContent = '';
-          } else {
-            // 是emoji或文字
-            avatarDiv.style.background = 'linear-gradient(135deg, #7b61ff, #39d7ff)';
-            avatarDiv.textContent = friend.avatar || '👤';
-          }
+              // 更严格地检测 data URL（避免被当作文本插入）
+              const isDataUrl = typeof friend.avatar === 'string' && /^(data:)[\w/+.-]+;base64,/.test(friend.avatar);
+              if (isDataUrl) {
+                // 是图片数据，设置为背景并清除文本内容
+                avatarDiv.style.backgroundImage = `url(${friend.avatar})`;
+                avatarDiv.style.backgroundSize = 'cover';
+                avatarDiv.style.backgroundRepeat = 'no-repeat';
+                avatarDiv.textContent = '';
+              } else {
+                // 是 emoji 或文字，使用渐变背景并显示文本
+                avatarDiv.style.backgroundImage = 'none';
+                avatarDiv.style.background = 'linear-gradient(135deg, #7b61ff, #39d7ff)';
+                avatarDiv.textContent = friend.avatar || '👤';
+              }
           
           const infoDiv = document.createElement('div');
           infoDiv.className = 'friend-info';
