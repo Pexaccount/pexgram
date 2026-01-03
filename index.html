@@ -743,6 +743,10 @@
     <div class="chat-header">
       <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
         <button class="icon-btn-small" id="menuBtn" title="菜单" style="display: none;">☰</button>
+        <button class="icon-btn-small" id="worldBtn" title="世界聊天">🌍</button>
+        <button class="icon-btn-small" id="momentsBtn" title="朋友圈">📰</button>
+        <button class="icon-btn-small" id="backBtn" title="返回" style="display:none;">↩</button>
+        <button class="icon-btn-small" id="favoritesBtn" title="收藏">★</button>
         <div>
           <h3 id="chatTitle">全球聊天</h3>
           <div class="chat-header-info" id="chatInfo">实时聊天</div>
@@ -780,6 +784,13 @@
 
         <button class="icon-btn" id="uploadImgBtn" title="上传图片">🖼️</button>
         <input type="file" id="imgInput" class="hidden-input" accept="image/*">
+        
+        <button class="icon-btn" id="uploadVideoBtn" title="上传视频">📹</button>
+        <input type="file" id="videoInput" class="hidden-input" accept="video/*">
+
+        <button class="icon-btn" id="gifBtn" title="发送 GIF">GIF</button>
+
+        <button class="icon-btn" id="locationBtn" title="发送位置">📍</button>
 
         <button class="icon-btn" id="uploadFileBtn" title="上传文件">📎</button>
         <input type="file" id="fileInput" class="hidden-input">
@@ -802,14 +813,34 @@
   <img id="modalImage" src="" alt="放大图片">
 </div>
 
+<div class="image-modal" id="momentsModal" style="padding:20px;">
+  <div id="momentsContent" style="position:relative; background:rgba(0,0,0,0.6); padding:12px; border-radius:10px; width:90%; max-width:800px;">
+    <button id="closeMomentsBtn" title="关闭" style="position:absolute; right:10px; top:8px; background:transparent; border:none; color:var(--text); font-size:20px; cursor:pointer;">×</button>
+    <h3 style="margin:0 0 8px 0;">朋友圈</h3>
+    <div style="margin-bottom:8px; display:flex; gap:8px;">
+      <input id="momentText" placeholder="说点什么..." style="flex:1; padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:var(--text);">
+      <button id="postMomentBtn" class="auth-btn" style="padding:8px 12px;">发布</button>
+    </div>
+    <div id="momentsList" style="max-height:60vh; overflow:auto;"></div>
+  </div>
+</div>
+
+<div class="image-modal" id="favoritesModal" style="padding:20px;">
+  <div id="favoritesContent" style="position:relative; background:rgba(0,0,0,0.6); padding:12px; border-radius:10px; width:90%; max-width:800px;">
+    <button id="closeFavoritesBtn" title="关闭" style="position:absolute; right:10px; top:8px; background:transparent; border:none; color:var(--text); font-size:20px; cursor:pointer;">×</button>
+    <h3 style="margin:0 0 8px 0;">我的收藏</h3>
+    <div id="favoritesList" style="max-height:60vh; overflow:auto;"></div>
+  </div>
+</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-  import { getDatabase, ref, push, onChildAdded, set, get, update, query, limitToLast } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
+  import { getDatabase, ref, push, onChildAdded, onValue, set, get, update, query, limitToLast } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAlOYUdwcNWWueaj7X9RdzzkAk_r-_JWL8",
-    authDomain: "https://pexgram.pwwanghe.workers.dev/",
-    databaseURL: "https://pexgram.pwwanghe.workers.dev/firebase",
+    authDomain: "pexchatweb.firebaseapp.com",
+    databaseURL: "https://pexchatweb-default-rtdb.firebaseio.com",
     projectId: "pexchatweb",
     storageBucket: "pexchatweb.firebasestorage.app",
     messagingSenderId: "157034955766",
@@ -822,6 +853,7 @@
   // === 状态管理 ===
   let currentUser = null; // { uid, username, avatar, isAnonymous }
   let currentChatId = 'global';
+  let prevChatId = null;
   let mediaRecorder = null;
   let mediaStream = null;
   let recordingChunks = [];
@@ -847,6 +879,10 @@
 
   const uploadImgBtn = document.getElementById('uploadImgBtn');
   const imgInput = document.getElementById('imgInput');
+  const uploadVideoBtn = document.getElementById('uploadVideoBtn');
+  const videoInput = document.getElementById('videoInput');
+  const gifBtn = document.getElementById('gifBtn');
+  const locationBtn = document.getElementById('locationBtn');
   const uploadFileBtn = document.getElementById('uploadFileBtn');
   const fileInput = document.getElementById('fileInput');
   const recordBtn = document.getElementById('recordBtn');
@@ -863,6 +899,9 @@
 
   // === 移动端菜单按钮 ===
   const menuBtn = document.getElementById('menuBtn');
+  const worldBtn = document.getElementById('worldBtn');
+  const momentsBtn = document.getElementById('momentsBtn');
+  const backBtn = document.getElementById('backBtn');
 
   function updateMenuButton() {
     const isSmall = window.innerWidth <= 640;
@@ -884,6 +923,12 @@
       if (sidebar) {
         sidebar.classList.toggle('mobile-show');
       }
+    });
+  }
+
+  if (worldBtn) {
+    worldBtn.addEventListener('click', () => {
+      loadGlobalChat();
     });
   }
 
@@ -1152,38 +1197,86 @@
 
   function appendMessage(msg, key) {
     if (!msg) return;
-
     const div = document.createElement('div');
     div.className = 'msg' + (msg.uid === currentUser.uid ? ' me' : '');
+    div.dataset.key = key;
+    div.dataset.chat = currentChatId;
     
     const bubbleDiv = document.createElement('div');
     bubbleDiv.className = 'msg-bubble';
 
-    // 先添加内容
-    if (msg.type === 'image' && msg.data) {
-      const img = document.createElement('img');
-      img.src = msg.data;
-      img.alt = 'image';
-      img.style.maxWidth = '100%';
-      img.style.height = 'auto';
-      img.style.display = 'block';
-      bubbleDiv.appendChild(img);
-      attachImageClickListener(img);
-    } else if (msg.type === 'audio' && msg.data) {
-      const audio = document.createElement('audio');
-      audio.controls = true;
-      audio.src = msg.data;
-      audio.style.width = '100%';
-      audio.style.maxWidth = 'none';
-      bubbleDiv.appendChild(audio);
-    } else if (msg.type === 'file' && msg.fileUrl) {
-      const link = document.createElement('a');
-      link.href = msg.fileUrl;
-      link.textContent = msg.fileName || '下载文件';
-      link.target = '_blank';
-      bubbleDiv.appendChild(link);
+    // 如果消息被撤回
+    if (msg.recalled) {
+      bubbleDiv.textContent = '已撤回';
     } else {
-      bubbleDiv.textContent = msg.text || '';
+      // 先添加内容
+      if (msg.type === 'image' && msg.data) {
+        const img = document.createElement('img');
+        img.src = msg.data;
+        img.alt = 'image';
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+        img.style.display = 'block';
+        bubbleDiv.appendChild(img);
+        attachImageClickListener(img);
+
+        // 下载按钮
+        const dl = document.createElement('a');
+        dl.href = msg.data;
+        dl.download = msg.fileName || 'image.png';
+        dl.textContent = ' 下载';
+        dl.style.display = 'inline-block';
+        dl.style.marginLeft = '8px';
+        bubbleDiv.appendChild(dl);
+      } else if (msg.type === 'gif' && msg.url) {
+        const img = document.createElement('img');
+        img.src = msg.url;
+        img.alt = 'gif';
+        img.style.maxWidth = '100%';
+        img.style.display = 'block';
+        bubbleDiv.appendChild(img);
+        attachImageClickListener(img);
+      } else if (msg.type === 'video' && msg.data) {
+        const v = document.createElement('video');
+        v.controls = true;
+        v.src = msg.data;
+        v.style.maxWidth = '100%';
+        bubbleDiv.appendChild(v);
+        const dlv = document.createElement('a');
+        dlv.href = msg.data;
+        dlv.download = msg.fileName || 'video.mp4';
+        dlv.textContent = ' 下载视频';
+        dlv.style.display = 'inline-block';
+        dlv.style.marginLeft = '8px';
+        bubbleDiv.appendChild(dlv);
+      } else if (msg.type === 'audio' && msg.data) {
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.src = msg.data;
+        audio.style.width = '100%';
+        audio.style.maxWidth = 'none';
+        bubbleDiv.appendChild(audio);
+      } else if (msg.type === 'file' && msg.fileUrl) {
+        const link = document.createElement('a');
+        link.href = msg.fileUrl;
+        link.textContent = msg.fileName || '下载文件';
+        link.target = '_blank';
+        bubbleDiv.appendChild(link);
+      } else if (msg.type === 'location' && msg.mapsUrl) {
+        const a = document.createElement('a');
+        a.href = msg.mapsUrl;
+        a.textContent = `📍 位置： ${msg.lat.toFixed(5)}, ${msg.lon.toFixed(5)}`;
+        a.target = '_blank';
+        bubbleDiv.appendChild(a);
+      } else {
+        // 将文本中的 URL 转为可点击链接
+        const text = msg.text || '';
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const html = text.replace(urlRegex, (m) => `<a href="${m}" target="_blank">${m}</a>`);
+        const wrap = document.createElement('div');
+        wrap.innerHTML = html;
+        bubbleDiv.appendChild(wrap);
+      }
     }
 
     // 结构：如果是别人的消息，先显示用户名，再显示气泡；自己的消息只显示气泡
@@ -1193,12 +1286,171 @@
       metaDiv.textContent = msg.username || '未知用户';
       div.appendChild(metaDiv);
     }
+
+    // 操作按钮：收藏、撤回（自己的消息）
+    const actionBar = document.createElement('div');
+    actionBar.style.marginTop = '6px';
+    actionBar.style.display = 'flex';
+    actionBar.style.gap = '8px';
+
+    // 收藏按钮
+    const favBtn = document.createElement('button');
+    favBtn.textContent = `☆ ${msg.favorites ? msg.favorites.length : 0}`;
+    favBtn.style.fontSize = '12px';
+    favBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const msgRef = ref(db, `chats/${currentChatId}/messages/${key}/favorites`);
+      const snap = await get(msgRef);
+      const arr = snap.val() || [];
+      const idx = arr.indexOf(currentUser.uid);
+      if (idx === -1) arr.push(currentUser.uid);
+      else arr.splice(idx, 1);
+      update(ref(db, `chats/${currentChatId}/messages/${key}`), { favorites: arr });
+    });
+    actionBar.appendChild(favBtn);
+
+    // 撤回（仅作者可见）
+    if (msg.uid === currentUser.uid && !msg.recalled) {
+      const recallBtn = document.createElement('button');
+      recallBtn.textContent = '撤回';
+      recallBtn.style.fontSize = '12px';
+      recallBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm('确定撤回此消息？')) return;
+        update(ref(db, `chats/${currentChatId}/messages/${key}`), { recalled: true, recalledAt: Date.now() });
+      });
+      actionBar.appendChild(recallBtn);
+    }
+
+    // 将收藏数实时更新（监听当前 message favorites）
+    const favPath = ref(db, `chats/${currentChatId}/messages/${key}/favorites`);
+    onValue(favPath, (s) => {
+      const arr = s.val() || [];
+      favBtn.textContent = `☆ ${arr.length}`;
+    });
+
     div.appendChild(bubbleDiv);
+    div.appendChild(actionBar);
     messagesArea.appendChild(div);
     messagesArea.scrollTop = messagesArea.scrollHeight;
   }
 
-  sendBtn.addEventListener('click', sendMessage);
+    // === 收藏查看功能 ===
+    const favoritesBtnEl = document.getElementById('favoritesBtn');
+    const favoritesModal = document.getElementById('favoritesModal');
+    const favoritesList = document.getElementById('favoritesList');
+
+    favoritesBtnEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // 记录当前聊天，以便返回
+      prevChatId = currentChatId;
+      if (backBtn) backBtn.style.display = 'inline-flex';
+      favoritesModal.classList.toggle('show');
+      if (favoritesModal.classList.contains('show')) loadFavorites();
+    });
+
+    // 返回上一个聊天
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        if (!prevChatId) return;
+        openChatById(prevChatId, null);
+        prevChatId = null;
+        backBtn.style.display = 'none';
+        // 如果收藏弹窗打开则关闭
+        if (favoritesModal.classList.contains('show')) favoritesModal.classList.remove('show');
+      });
+    }
+
+    // 关闭按钮和背景点击行为 for favorites
+    const closeFavoritesBtn = document.getElementById('closeFavoritesBtn');
+    const favoritesContent = document.getElementById('favoritesContent');
+    closeFavoritesBtn.addEventListener('click', () => favoritesModal.classList.remove('show'));
+    favoritesModal.addEventListener('click', () => favoritesModal.classList.remove('show'));
+    favoritesContent.addEventListener('click', (e) => e.stopPropagation());
+
+    async function loadFavorites() {
+      favoritesList.innerHTML = '';
+      const snap = await get(ref(db, 'chats'));
+      const chats = snap.val() || {};
+      const items = [];
+      for (const chatId in chats) {
+        const msgs = chats[chatId].messages || {};
+        for (const k in msgs) {
+          const m = msgs[k];
+          if (m && m.favorites && Array.isArray(m.favorites) && m.favorites.includes(currentUser.uid)) {
+            items.push({ chatId, key: k, msg: m });
+          }
+        }
+      }
+      items.sort((a, b) => (b.msg.time || 0) - (a.msg.time || 0));
+      if (items.length === 0) {
+        favoritesList.innerHTML = '<div style="padding:8px;color:var(--muted);">暂无收藏</div>';
+        return;
+      }
+      items.forEach(it => {
+        const d = document.createElement('div');
+        d.style.padding = '8px';
+        d.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+        const textPreview = it.msg.type === 'text' ? (it.msg.text || '') : (`[${it.msg.type}]`);
+        d.innerHTML = `<div style="font-weight:600">${it.msg.username || '未知'}</div><div style="font-size:13px;margin:6px 0">${escapeHtml(textPreview)}</div>`;
+
+        const goto = document.createElement('button');
+        goto.textContent = '跳转';
+        goto.style.marginRight = '8px';
+        goto.addEventListener('click', () => {
+          openChatById(it.chatId, it.key);
+          favoritesModal.classList.remove('show');
+        });
+
+        const unfav = document.createElement('button');
+        unfav.textContent = '取消收藏';
+        unfav.addEventListener('click', async () => {
+          const favRef = ref(db, `chats/${it.chatId}/messages/${it.key}/favorites`);
+          const s = await get(favRef);
+          let arr = s.val() || [];
+          const idx = arr.indexOf(currentUser.uid);
+          if (idx !== -1) arr.splice(idx, 1);
+          await update(ref(db, `chats/${it.chatId}/messages/${it.key}`), { favorites: arr });
+          loadFavorites();
+        });
+
+        d.appendChild(goto);
+        d.appendChild(unfav);
+        favoritesList.appendChild(d);
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function openChatById(chatId, msgKey) {
+      if (chatId === 'global') {
+        loadGlobalChat();
+        setTimeout(() => scrollToMessage(msgKey), 700);
+      } else {
+        const parts = chatId.split('_');
+        const friendId = parts[0] === currentUser.uid ? parts[1] : parts[0];
+        get(ref(db, `users/${friendId}`)).then(snap => {
+          const friend = snap.val() || { username: '用户' };
+          openChat(friendId, friend.username);
+          setTimeout(() => scrollToMessage(msgKey), 700);
+        });
+      }
+    }
+
+    function scrollToMessage(msgKey) {
+      const el = [...messagesArea.querySelectorAll('.msg')].find(d => d.dataset.key === msgKey);
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.boxShadow = '0 0 0 3px rgba(57,215,255,0.12)'; setTimeout(() => el.style.boxShadow = '', 3000); return; }
+      let tries = 0;
+      const t = setInterval(() => {
+        tries++; const el2 = [...messagesArea.querySelectorAll('.msg')].find(d => d.dataset.key === msgKey);
+        if (el2) { el2.scrollIntoView({ behavior: 'smooth', block: 'center' }); el2.style.boxShadow = '0 0 0 3px rgba(57,215,255,0.12)'; clearInterval(t); setTimeout(() => el2.style.boxShadow = '', 3000); }
+        if (tries > 8) clearInterval(t);
+      }, 400);
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
   msgInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -1249,6 +1501,67 @@
       imgInput.value = '';
     };
     reader.readAsDataURL(file);
+  });
+
+  // === 视频上传 ===
+  uploadVideoBtn.addEventListener('click', () => videoInput.click());
+  videoInput.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      push(ref(db, `chats/${currentChatId}/messages`), {
+        uid: currentUser.uid,
+        username: currentUser.username,
+        type: 'video',
+        data: reader.result,
+        fileName: file.name,
+        time: Date.now()
+      });
+      videoInput.value = '';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // === 发送 GIF（外部 URL） ===
+  gifBtn.addEventListener('click', () => {
+    const url = prompt('输入 GIF 图片地址（http(s)://）：');
+    if (!url) return;
+    push(ref(db, `chats/${currentChatId}/messages`), {
+      uid: currentUser.uid,
+      username: currentUser.username,
+      type: 'gif',
+      url,
+      time: Date.now()
+    });
+  });
+
+  // === 发送地理位置（链接） ===
+  locationBtn.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      alert('当前浏览器不支持地理定位');
+      return;
+    }
+    locationBtn.disabled = true;
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      const mapsUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`;
+      push(ref(db, `chats/${currentChatId}/messages`), {
+        uid: currentUser.uid,
+        username: currentUser.username,
+        type: 'location',
+        lat,
+        lon,
+        mapsUrl,
+        time: Date.now()
+      });
+      locationBtn.disabled = false;
+    }, (err) => {
+      alert('获取位置失败：' + err.message);
+      locationBtn.disabled = false;
+    }, { enableHighAccuracy: true, timeout: 10000 });
   });
 
   // === 文件上传 ===
@@ -1569,6 +1882,75 @@
     imageModal.classList.remove('show');
   });
 
+  // === 朋友圈（Moments） ===
+  const momentsModal = document.getElementById('momentsModal');
+  const momentsBtnEl = document.getElementById('momentsBtn');
+  const postMomentBtn = document.getElementById('postMomentBtn');
+  const momentText = document.getElementById('momentText');
+  const momentsList = document.getElementById('momentsList');
+
+  momentsBtnEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    momentsModal.classList.toggle('show');
+    if (momentsModal.classList.contains('show')) loadMoments();
+  });
+
+  // 关闭按钮和背景点击行为 for moments
+  const closeMomentsBtn = document.getElementById('closeMomentsBtn');
+  const momentsContent = document.getElementById('momentsContent');
+  closeMomentsBtn.addEventListener('click', () => momentsModal.classList.remove('show'));
+  momentsModal.addEventListener('click', () => momentsModal.classList.remove('show'));
+  momentsContent.addEventListener('click', (e) => e.stopPropagation());
+
+  postMomentBtn.addEventListener('click', async () => {
+    const text = momentText.value.trim();
+    if (!text) return alert('请输入内容');
+    try {
+      await push(ref(db, 'moments'), {
+        uid: currentUser.uid,
+        username: currentUser.username,
+        text,
+        time: Date.now(),
+        likes: []
+      });
+      momentText.value = '';
+      // 发布后自动刷新并关闭弹窗
+      await loadMoments();
+      momentsModal.classList.remove('show');
+    } catch (err) {
+      alert('发布失败：' + err.message);
+    }
+  });
+
+  async function loadMoments() {
+    momentsList.innerHTML = '';
+    const snap = await get(ref(db, 'moments'));
+    const data = snap.val() || {};
+    const items = Object.entries(data).map(([k, v]) => ({ id: k, ...v }))
+      .sort((a, b) => b.time - a.time);
+    items.forEach(item => {
+      const div = document.createElement('div');
+      div.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+      div.style.padding = '8px 0';
+      div.innerHTML = `<div style="font-weight:600">${item.username}</div><div style="font-size:13px; margin:6px 0">${item.text}</div>`;
+      const likeBtn = document.createElement('button');
+      likeBtn.textContent = `👍 ${item.likes ? item.likes.length : 0}`;
+      likeBtn.style.fontSize = '12px';
+      likeBtn.addEventListener('click', async () => {
+        const likesRef = ref(db, `moments/${item.id}/likes`);
+        const snap2 = await get(likesRef);
+        const arr = snap2.val() || [];
+        const idx = arr.indexOf(currentUser.uid);
+        if (idx === -1) arr.push(currentUser.uid);
+        else arr.splice(idx, 1);
+        await update(ref(db, `moments/${item.id}`), { likes: arr });
+        loadMoments();
+      });
+      div.appendChild(likeBtn);
+      momentsList.appendChild(div);
+    });
+  }
+
   // === 表情包功能 ===
   const emojis = ['😊', '😂', '😍', '🥰', '😎', '🤔', '😴', '😤', '😡', '😢', '😭', '🤩',
     '🙃', '😌', '😏', '😒', '🥱', '😲', '🤨', '😕', '🫠', '😳', '🥺', '😱',
@@ -1698,6 +2080,14 @@
   window.addEventListener('beforeunload', () => {
     if (mediaStream) {
       mediaStream.getTracks().forEach(t => t.stop());
+    }
+  });
+
+  // 按 Esc 关闭模态窗口
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const modals = [document.getElementById('imageModal'), document.getElementById('momentsModal'), document.getElementById('favoritesModal')];
+      modals.forEach(m => { if (m && m.classList.contains('show')) m.classList.remove('show'); });
     }
   });
 
