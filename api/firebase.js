@@ -1,22 +1,23 @@
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
-  }
+  const target = "https://pexchatweb-default-rtdb.firebaseio.com";
 
-  const target = req.query.url;
-  if (!target) {
-    res.status(400).send("missing url");
-    return;
-  }
+  const url = target + req.url;
 
-  const r = await fetch(target, {
+  const response = await fetch(url, {
     method: req.method,
-    headers: req.headers,
+    headers: {
+      ...req.headers,
+      host: "pexchatweb-default-rtdb.firebaseio.com"
+    },
+    body: req.method === "GET" ? null : req.body,
   });
 
-  const text = await r.text();
-  res.status(r.status).send(text);
+  res.status(response.status);
+
+  response.headers.forEach((v, k) => {
+    res.setHeader(k, v);
+  });
+
+  const data = await response.arrayBuffer();
+  res.send(Buffer.from(data));
 }
