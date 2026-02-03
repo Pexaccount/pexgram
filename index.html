@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -20,7 +21,7 @@
       background: radial-gradient(ellipse at 10% 10%, #0f1724 0%, #071028 40%, #0b1220 100%);
       color: var(--text);
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: center;
       padding: 16px;
       min-height: 100vh;
@@ -29,23 +30,24 @@
     /* === 登录/注册面板 === */
     #authPanel {
       width: 100%;
-      max-width: 500px;
-      background: rgba(255, 255, 255, 0.04);
+      max-width: 760px;
+      background: rgba(255, 255, 255, 0.05);
       border-radius: 18px;
-      padding: 50px 40px;
+      padding: 60px 48px;
       border: 1px solid rgba(255, 255, 255, 0.06);
       backdrop-filter: blur(10px);
       box-shadow: 0 8px 30px rgba(2, 6, 23, 0.6);
       display: flex;
       flex-direction: column;
+      align-items: stretch;
       overflow: visible;
       min-height: auto;
-      margin-top: 20px;
-      margin-bottom: 20px;
+      margin-top: 28px;
+      margin-bottom: 28px;
     }
 
-    .auth-title { font-size: 28px; font-weight: 700; margin: 0 0 30px 0; text-align: center; flex-shrink: 0; }
-    .auth-form { display: flex; flex-direction: column; gap: 14px; overflow: visible; padding-right: 0; }
+    .auth-title { font-size: 32px; font-weight: 800; margin: 0 0 24px 0; text-align: center; flex-shrink: 0; }
+    .auth-form { display: flex; flex-direction: column; gap: 18px; overflow: visible; padding-right: 0; width:100%; }
     .emoji-picker-container { display: none; position: absolute; bottom: 60px; left: 16px; background: rgba(255, 255, 255, 0.08);
       border-radius: 12px; padding: 8px; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 1000; }
@@ -56,7 +58,7 @@
     .form-group { display: flex; flex-direction: column; gap: 6px; }
     .form-group label { font-size: 13px; color: var(--muted); font-weight: 500; }
     .form-group input {
-      padding: 14px 16px;
+      padding: 16px 18px;
       border-radius: 10px;
       border: 1px solid rgba(255, 255, 255, 0.06);
       background: rgba(255, 255, 255, 0.02);
@@ -65,10 +67,16 @@
       font-size: 15px;
       transition: border-color 0.2s;
     }
+    /* 修正：登录面板内输入不超出容器 */
+    #authPanel .form-group input, #authPanel input {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
     .form-group input:focus { border-color: rgba(59, 130, 246, 0.5); }
 
     .auth-btn {
-      padding: 14px 16px;
+      padding: 16px 20px;
       border-radius: 999px;
       border: none;
       background: var(--accent);
@@ -77,8 +85,8 @@
       cursor: pointer;
       transition: transform 0.1s, box-shadow 0.1s;
       flex-shrink: 0;
-      margin-top: 10px;
-      font-size: 15px;
+      margin-top: 14px;
+      font-size: 16px;
     }
     .auth-btn:active { transform: scale(0.98); }
 
@@ -639,6 +647,12 @@
         font-size: 12px;
       }
     }
+    /* 毛玻璃 文件发送面板 */
+    .file-panel{position:fixed;right:24px;bottom:24px;width:340px;border-radius:12px;padding:14px;background:rgba(255,255,255,0.04);backdrop-filter: blur(12px);box-shadow:0 8px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.06);color:#e7f0ff;z-index:1500}
+    .file-panel .file-list{margin-top:8px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto}
+    .file-panel .file-item{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;background:rgba(255,255,255,0.02)}
+    .file-panel .file-item img{max-width:64px;max-height:48px;border-radius:6px;object-fit:cover}
+    .file-panel .file-actions{display:flex;gap:8px}
     /* Mobile overrides: improved drawer, fixed input and modal behavior */
     @media (max-width: 640px) {
       .left-sidebar {
@@ -700,11 +714,11 @@
 <div id="authPanel" class="active">
   <h2 class="auth-title">Pexgram</h2>
   <div class="auth-form">
-    <div class="auth-tabs">
-      <button class="auth-tab active" data-mode="login">登录</button>
-      <button class="auth-tab" data-mode="register">注册</button>
-      <button class="auth-tab" data-mode="change-password">修改密码</button>
-      <button class="auth-tab" data-mode="anonymous">匿名</button>
+    <div style="display:flex;justify-content:center;gap:12px;margin-bottom:14px;font-size:13px;color:var(--muted)">
+      <div>没有账号？<a href="#" id="toRegister" style="color:#39d7ff;text-decoration:none">点我注册</a></div>
+      <div style="display:none">已注册？<a href="#" id="toLogin" style="color:#39d7ff;text-decoration:none">点我登录</a></div>
+      <div>忘记密码？<a href="#" id="toChangePassword" style="color:#39d7ff;text-decoration:none">修改</a></div>
+      <div>匿名：<a href="#" id="toAnonymous" style="color:#39d7ff;text-decoration:none">直接进入</a></div>
     </div>
 
     <!-- 登录表单 -->
@@ -919,6 +933,17 @@
   </div>
 </div>
 
+<!-- 毛玻璃 文件发送面板（可拖拽/选择多文件） -->
+<div class="file-panel" id="filePanel" style="display:none">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="font-weight:700">发送文件</div>
+    <div style="font-size:12px;opacity:0.8">拖放或选择文件</div>
+  </div>
+  <label style="margin-top:10px;display:block;padding:10px;border-radius:10px;border:1px dashed rgba(255,255,255,0.06);cursor:pointer;text-align:center;">点击或拖放文件到此<input id="filePanelInput" type="file" multiple style="display:none"></label>
+  <div class="file-list" id="filePanelList"></div>
+  <div style="display:flex;justify-content:flex-end;margin-top:10px"><button id="filePanelSend" class="auth-btn" style="padding:8px 12px">发送所选</button></div>
+</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
   import { getDatabase, ref, push, onChildAdded, onValue, set, get, update, query, limitToLast } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
@@ -948,10 +973,15 @@
   // === UI 元素 ===
   const authPanel = document.getElementById('authPanel');
   const chatPanel = document.getElementById('chatPanel');
-  const authTabs = document.querySelectorAll('.auth-tab');
   const loginForm = document.getElementById('loginForm');
   const registerForm = document.getElementById('registerForm');
   const anonForm = document.getElementById('anonForm');
+  const toRegister = document.getElementById('toRegister');
+  const toLogin = document.getElementById('toLogin');
+  const toChangePassword = document.getElementById('toChangePassword');
+  const toAnonymous = document.getElementById('toAnonymous');
+  const changePasswordForm = document.getElementById('changePasswordForm');
+  const changePasswordBtn = document.getElementById('changePasswordBtn');
 
   const msgInput = document.getElementById('msgInput');
   const sendBtn = document.getElementById('sendBtn');
@@ -980,8 +1010,7 @@
   const emojiPicker = document.getElementById('emojiPicker');
   const contactBtn = document.getElementById('contactBtn');
   const contactMenu = document.getElementById('contactMenu');
-  const changePasswordForm = document.getElementById('changePasswordForm');
-  const changePasswordBtn = document.getElementById('changePasswordBtn');
+  
 
   // === 移动端菜单按钮 ===
   const menuBtn = document.getElementById('menuBtn');
@@ -1032,22 +1061,39 @@
   document.getElementById('changePasswordBtn').addEventListener('click', changePassword);
   document.getElementById('anonBtn').addEventListener('click', () => enterAnonymous());
 
-  authTabs.forEach(tab => {
-    tab.addEventListener('click', (e) => {
-      authTabs.forEach(t => t.classList.remove('active'));
-      e.target.classList.add('active');
+  // 连接式登录/注册切换逻辑（通过链接切换表单显示）
+  function showLogin() {
+    loginForm.style.display = 'flex';
+    registerForm.style.display = 'none';
+    changePasswordForm.style.display = 'none';
+    anonForm.style.display = 'none';
+    if (toLogin) toLogin.parentElement.style.display = 'none';
+    if (toRegister) toRegister.parentElement.style.display = '';
+  }
+  function showRegister() {
+    loginForm.style.display = 'none';
+    registerForm.style.display = 'flex';
+    changePasswordForm.style.display = 'none';
+    anonForm.style.display = 'none';
+    if (toLogin) toLogin.parentElement.style.display = '';
+    if (toRegister) toRegister.parentElement.style.display = 'none';
+  }
+  function showChangePassword() {
+    loginForm.style.display = 'none';
+    registerForm.style.display = 'none';
+    changePasswordForm.style.display = 'flex';
+    anonForm.style.display = 'none';
+    if (toLogin) toLogin.parentElement.style.display = '';
+    if (toRegister) toRegister.parentElement.style.display = '';
+  }
 
-      loginForm.style.display = 'none';
-      registerForm.style.display = 'none';
-      changePasswordForm.style.display = 'none';
-      anonForm.style.display = 'none';
+  if (toRegister) toRegister.addEventListener('click', (e) => { e.preventDefault(); showRegister(); });
+  if (toLogin) toLogin.addEventListener('click', (e) => { e.preventDefault(); showLogin(); });
+  if (toChangePassword) toChangePassword.addEventListener('click', (e) => { e.preventDefault(); showChangePassword(); });
+  if (toAnonymous) toAnonymous.addEventListener('click', (e) => { e.preventDefault(); enterAnonymous(); });
 
-      if (e.target.dataset.mode === 'login') loginForm.style.display = 'flex';
-      else if (e.target.dataset.mode === 'register') registerForm.style.display = 'flex';
-      else if (e.target.dataset.mode === 'change-password') changePasswordForm.style.display = 'flex';
-      else if (e.target.dataset.mode === 'anonymous') anonForm.style.display = 'flex';
-    });
-  });
+  // 初始显示登录表单
+  showLogin();
 
   async function register() {
     const username = document.getElementById('regUsername').value.trim();
@@ -1093,7 +1139,7 @@
 
       msg.textContent = '注册成功！请登录';
       setTimeout(() => {
-        document.querySelector('[data-mode="login"]').click();
+        showLogin();
         document.getElementById('loginUsername').value = username;
         document.getElementById('loginPassword').value = '';
       }, 1000);
@@ -1187,7 +1233,7 @@
       msg.textContent = '密码修改成功！';
       msg.style.color = '#39d7ff';
       setTimeout(() => {
-        document.querySelector('[data-mode="login"]').click();
+        showLogin();
         document.getElementById('loginUsername').value = username;
         document.getElementById('loginPassword').value = '';
         document.getElementById('cpUsername').value = '';
@@ -1241,6 +1287,8 @@
     } else {
       addFriendBtn.style.display = 'none';
     }
+    // 请求并准备桌面通知权限
+    try { ensureNotification(); } catch(e) { console.warn('ensureNotification error', e); }
   }
 
   // === 消息相关 ===
@@ -1420,6 +1468,14 @@
     div.appendChild(actionBar);
     messagesArea.appendChild(div);
     messagesArea.scrollTop = messagesArea.scrollHeight;
+    // 桌面通知：来自他人的消息触发通知（请求权限将在登录时发起）
+    try {
+      if (msg && msg.uid && currentUser && msg.uid !== currentUser.uid) {
+        const title = msg.username || '新消息';
+        const body = msg.text || (msg.type ? '[' + msg.type + ']' : '收到一条消息');
+        showNotification(title, body);
+      }
+    } catch (e) { console.warn('notify failed', e); }
   }
 
     // === 收藏查看功能 ===
@@ -2647,6 +2703,86 @@
 
   initEmojiPicker();
 
+  // === 桌面通知支持 ===
+  async function ensureNotification() {
+    if (!('Notification' in window)) return false;
+    if (Notification.permission === 'granted') return true;
+    if (Notification.permission !== 'denied') {
+      const p = await Notification.requestPermission();
+      return p === 'granted';
+    }
+    return false;
+  }
+
+  function showNotification(title, body) {
+    try {
+      ensureNotification().then(ok => {
+        if (ok) {
+          new Notification(title, { body });
+        }
+      });
+    } catch (e) { console.warn('notification error', e); }
+  }
+
+  // === 毛玻璃文件发送面板逻辑 ===
+  const filePanel = document.getElementById('filePanel');
+  const filePanelInput = document.getElementById('filePanelInput');
+  const filePanelList = document.getElementById('filePanelList');
+  const filePanelSend = document.getElementById('filePanelSend');
+  let stagedFiles = [];
+
+  // 切换面板：将原上传文件按钮改为打开面板
+  uploadFileBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    filePanel.style.display = filePanel.style.display === 'none' ? 'block' : 'none';
+  });
+
+  filePanelInput.addEventListener('change', (e) => {
+    handlePanelFiles(e.target.files);
+  });
+
+  filePanel.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+  filePanel.addEventListener('drop', (e) => { e.preventDefault(); handlePanelFiles(e.dataTransfer.files); });
+
+  function handlePanelFiles(list) {
+    for (const f of list) stagedFiles.push(f);
+    renderStagedFiles();
+  }
+
+  function renderStagedFiles() {
+    filePanelList.innerHTML = '';
+    stagedFiles.forEach((f, i) => {
+      const it = document.createElement('div'); it.className = 'file-item';
+      if (f.type.startsWith('image/')) { const img = document.createElement('img'); img.src = URL.createObjectURL(f); it.appendChild(img); }
+      const meta = document.createElement('div'); meta.style.flex = '1'; meta.innerHTML = `<div style="font-weight:700">${f.name}</div><div style="font-size:12px;opacity:0.75">${Math.round(f.size/1024)} KB</div>`;
+      it.appendChild(meta);
+      const actions = document.createElement('div'); actions.className = 'file-actions';
+      const rem = document.createElement('button'); rem.textContent = '移除'; rem.className = 'auth-btn'; rem.style.background = '#ef4444'; rem.onclick = () => { stagedFiles.splice(i, 1); renderStagedFiles(); };
+      actions.appendChild(rem);
+      it.appendChild(actions);
+      filePanelList.appendChild(it);
+    });
+  }
+
+  filePanelSend.addEventListener('click', async () => {
+    if (!stagedFiles.length) { alert('请选择文件'); return; }
+    for (const f of stagedFiles) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        push(ref(db, `chats/${currentChatId}/messages`), {
+          uid: currentUser.uid,
+          username: currentUser.username,
+          type: 'file',
+          fileUrl: reader.result,
+          fileName: f.name,
+          time: Date.now()
+        });
+      };
+      reader.readAsDataURL(f);
+    }
+    stagedFiles = []; renderStagedFiles(); filePanel.style.display = 'none';
+  });
+
   // === 页面加载时检查已保存的登录状态 ===
   window.addEventListener('load', () => {
     const savedUser = localStorage.getItem('pexgram_user');
@@ -2664,4 +2800,3 @@
 
 </body>
 </html>
-
