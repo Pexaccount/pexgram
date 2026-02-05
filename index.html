@@ -1046,6 +1046,32 @@
   </div>
 </div>
 
+<!-- 用户信息弹窗 -->
+<div class="image-modal" id="userProfileModal" style="padding:20px;">
+  <div style="position:relative; background:rgba(0,0,0,0.6); padding:30px 20px; border-radius:10px; width:90%; max-width:400px; text-align:center;">
+    <button id="closeUserProfileBtn" title="关闭" style="position:absolute; right:12px; top:12px; background:transparent; border:none; color:var(--text); font-size:20px; cursor:pointer;">×</button>
+    
+    <!-- 头像 -->
+    <div style="width:100px; height:100px; border-radius:50%; background:#7b61ff; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; overflow:hidden; font-size:40px;">
+      <img id="userProfileAvatar" src="" alt="头像" style="width:100%; height:100%; object-fit:cover;">
+    </div>
+    
+    <!-- 用户名 -->
+    <h3 id="userProfileName" style="margin:0 0 8px 0; color:var(--text);">用户名</h3>
+    
+    <!-- UID -->
+    <p id="userProfileUid" style="margin:0 0 16px 0; font-size:12px; color:var(--text-secondary, rgba(255,255,255,0.5));">UID</p>
+    
+    <!-- 头像下载按钮 -->
+    <div style="margin-bottom:16px;">
+      <a id="downloadAvatarBtn" href="" download="" class="unified-btn" style="display:inline-block; text-decoration:none; cursor:pointer;">⬇️ 下载头像</a>
+    </div>
+    
+    <!-- 加好友按钮 -->
+    <button id="addUserAsFriendBtn" class="unified-btn" style="width:100%;">➕ 加为好友</button>
+  </div>
+</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
   import { getDatabase, ref, push, onChildAdded, onValue, set, get, update, query, limitToLast } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
@@ -1136,6 +1162,8 @@
   const createGroupNameInput = document.getElementById('createGroupNameInput');
   const createGroupPasswordInput = document.getElementById('createGroupPasswordInput');
   const createGroupMsg = document.getElementById('createGroupMsg');
+  const userProfileModal = document.getElementById('userProfileModal');
+  const closeUserProfileBtn = document.getElementById('closeUserProfileBtn');
   
 
   // === 移动端菜单按钮 ===
@@ -1520,8 +1548,11 @@
       } else if (msg.type === 'file' && msg.fileUrl) {
         const link = document.createElement('a');
         link.href = msg.fileUrl;
-        link.textContent = msg.fileName || '下载文件';
-        link.target = '_blank';
+        link.download = msg.fileName || '文件';
+        link.textContent = '📥 ' + (msg.fileName || '下载文件');
+        link.style.color = '#39d7ff';
+        link.style.textDecoration = 'underline';
+        link.style.cursor = 'pointer';
         bubbleDiv.appendChild(link);
       } else if (msg.type === 'location' && msg.mapsUrl) {
         const a = document.createElement('a');
@@ -1562,6 +1593,24 @@
       avatarDiv.style.overflow = 'hidden';
       avatarDiv.style.color = '#fff';
       avatarDiv.style.fontSize = '14px';
+      avatarDiv.style.cursor = 'pointer';
+      avatarDiv.style.transition = 'transform 0.2s, box-shadow 0.2s';
+      
+      // 添加悬停效果
+      avatarDiv.addEventListener('mouseenter', () => {
+        avatarDiv.style.transform = 'scale(1.15)';
+        avatarDiv.style.boxShadow = '0 0 12px rgba(57, 215, 255, 0.5)';
+      });
+      avatarDiv.addEventListener('mouseleave', () => {
+        avatarDiv.style.transform = 'scale(1)';
+        avatarDiv.style.boxShadow = 'none';
+      });
+      
+      // 点击头像打开用户信息弹窗
+      avatarDiv.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showUserProfile(msg.uid, msg.username, msg.avatar);
+      });
       
       if (msg.avatar) {
         const img = document.createElement('img');
@@ -1961,6 +2010,78 @@
     reader.readAsDataURL(file);
   });
 
+  // === 显示用户信息弹窗 ===
+  function showUserProfile(uid, username, avatar) {
+    const userProfileModal = document.getElementById('userProfileModal');
+    const userProfileName = document.getElementById('userProfileName');
+    const userProfileUid = document.getElementById('userProfileUid');
+    const userProfileAvatar = document.getElementById('userProfileAvatar');
+    const downloadAvatarBtn = document.getElementById('downloadAvatarBtn');
+    const addUserAsFriendBtn = document.getElementById('addUserAsFriendBtn');
+
+    userProfileName.textContent = username || '未知用户';
+    userProfileUid.textContent = `UID: ${uid}`;
+
+    // 设置头像
+    if (avatar) {
+      userProfileAvatar.src = avatar;
+      userProfileAvatar.style.display = 'block';
+      downloadAvatarBtn.href = avatar;
+      downloadAvatarBtn.download = `${username || 'avatar'}.png`;
+      downloadAvatarBtn.style.display = 'inline-block';
+    } else {
+      userProfileAvatar.style.display = 'none';
+      downloadAvatarBtn.style.display = 'none';
+      userProfileAvatar.parentElement.textContent = '👤';
+    }
+
+    // 加好友按钮逻辑
+    if (uid === currentUser.uid) {
+      addUserAsFriendBtn.textContent = '这是你';
+      addUserAsFriendBtn.disabled = true;
+    } else {
+      addUserAsFriendBtn.disabled = false;
+      addUserAsFriendBtn.textContent = '➕ 加为好友';
+      addUserAsFriendBtn.onclick = () => {
+        if (currentUser.isAnonymous) {
+          alert('请先登录');
+          return;
+        }
+        addUserAsFriend(uid, username);
+      };
+    }
+
+    userProfileModal.classList.add('show');
+  }
+
+  // === 加好友函数 ===
+  function addUserAsFriend(friendId, friendName) {
+    if (currentUser.isAnonymous) {
+      alert('请先登录');
+      return;
+    }
+
+    // 检查是否已经是好友
+    get(ref(db, `users/${currentUser.uid}/friends`)).then(snapshot => {
+      const friends = snapshot.val() || [];
+      if (friends.includes(friendId)) {
+        alert('已是好友');
+        return;
+      }
+
+      // 添加好友
+      const newFriends = [...friends, friendId];
+      update(ref(db, `users/${currentUser.uid}`), { friends: newFriends }).then(() => {
+        alert(`成功添加好友：${friendName}`);
+        document.getElementById('userProfileModal').classList.remove('show');
+        loadFriends();
+      }).catch(err => {
+        alert('添加好友失败：' + err.message);
+      });
+    }).catch(err => {
+      alert('获取好友列表失败：' + err.message);
+    });
+  }
 
   function loadFriends() {
     if (currentUser.isAnonymous) return;
@@ -2201,6 +2322,19 @@
   });
 
   createGroupModal.querySelector('div').addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  // 用户信息弹窗关闭
+  closeUserProfileBtn.addEventListener('click', () => {
+    userProfileModal.classList.remove('show');
+  });
+
+  userProfileModal.addEventListener('click', () => {
+    userProfileModal.classList.remove('show');
+  });
+
+  userProfileModal.querySelector('div').addEventListener('click', (e) => {
     e.stopPropagation();
   });
 
