@@ -1987,28 +1987,7 @@
     }, { enableHighAccuracy: true, timeout: 10000 });
   });
 
-  // === 文件上传 ===
-  uploadFileBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      push(ref(db, `chats/${currentChatId}/messages`), {
-        uid: currentUser.uid,
-        username: currentUser.username,
-        avatar: currentUser.avatar,
-        type: 'file',
-        fileUrl: reader.result,
-        fileName: file.name,
-        timestamp: Date.now(),
-        time: Date.now()
-      });
-      fileInput.value = '';
-    };
-    reader.readAsDataURL(file);
-  });
+  // === 文件上传由下面的文件面板系统处理 ===
 
   // === 显示用户信息弹窗 ===
   function showUserProfile(uid, username, avatar) {
@@ -3349,15 +3328,30 @@
         push(ref(db, `chats/${currentChatId}/messages`), {
           uid: currentUser.uid,
           username: currentUser.username,
+          avatar: currentUser.avatar,
           type: 'file',
           fileUrl: reader.result,
           fileName: f.name,
+          timestamp: Date.now(),
           time: Date.now()
         });
       };
       reader.readAsDataURL(f);
     }
     stagedFiles = []; renderStagedFiles(); filePanel.style.display = 'none';
+  });
+
+  // 添加关闭文件面板的方式：点击背景或按 ESC 键
+  document.addEventListener('click', (e) => {
+    if (filePanel.style.display === 'block' && !filePanel.contains(e.target) && !uploadFileBtn.contains(e.target)) {
+      filePanel.style.display = 'none';
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && filePanel.style.display === 'block') {
+      filePanel.style.display = 'none';
+    }
   });
 
   // === 页面加载时检查已保存的登录状态 ===
