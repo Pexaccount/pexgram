@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -110,6 +111,7 @@
       border: 1px solid rgba(255, 255, 255, 0.06);
       backdrop-filter: blur(10px);
       box-shadow: 0 8px 30px rgba(2, 6, 23, 0.6);
+      z-index: 1;
       display: none;
       overflow: hidden;
       position: relative;
@@ -208,6 +210,48 @@
     .contact-text { color: var(--text); word-break: break-all; }
 
     #messagesArea { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+    /* 统一按钮样式 */
+    .unified-btn { background: linear-gradient(135deg,#2563eb 0%,#39d7ff 100%); color:#fff; border:none; border-radius:10px; padding:6px 10px; cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:8px; }
+    .btn-icon { background: transparent; padding:6px; border-radius:8px; min-width:36px; justify-content:center; }
+    .btn-ghost { background: rgba(255,255,255,0.03); color:var(--text); border:1px solid rgba(255,255,255,0.04); }
+    .btn-label { font-weight:600; }
+
+    /* 自定义滚动条（消息区） */
+    #messagesArea::-webkit-scrollbar { width: 10px; }
+    #messagesArea::-webkit-scrollbar-track { background: transparent; }
+    #messagesArea::-webkit-scrollbar-thumb { background: linear-gradient(180deg, rgba(57,215,255,0.12), rgba(59,130,246,0.16)); border-radius:8px; }
+
+    /* 滚动进度条 */
+    .messages-progress-wrap { position: absolute; left: 16px; right: 16px; top: 12px; height: 6px; background: rgba(255,255,255,0.03); border-radius: 6px; overflow: hidden; z-index: 20; }
+    .messages-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #39d7ff, #7b61ff); box-shadow: 0 4px 18px rgba(59,130,246,0.18); transition: width 120ms linear; }
+
+    /* 弹性动画变量与关键帧（Q 弹效果） */
+    :root { --spring-duration: 420ms; --spring-ease: cubic-bezier(.2,1.1,.3,1); }
+
+    @keyframes btn-press {
+      0% { transform: scale(1); }
+      40% { transform: scale(0.94); }
+      70% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes bubble-pop {
+      0% { transform: translateY(8px) scale(0.98); opacity: 0; }
+      55% { transform: translateY(-6px) scale(1.03); opacity: 1; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    /* 按钮弹性交互 */
+    .unified-btn { transition: transform var(--spring-duration) var(--spring-ease), box-shadow var(--spring-duration) var(--spring-ease); }
+    .unified-btn:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 12px 30px rgba(59,130,246,0.12); }
+    .unified-btn:active { animation: btn-press var(--spring-duration) var(--spring-ease); }
+
+    /* 消息气泡弹入 */
+    .msg-bubble.pop { animation: bubble-pop 520ms var(--spring-ease); transform-origin: center; }
+
+    /* 发送按钮弹动（发送时触发类 .pushed ） */
+    #sendBtn.pushed { animation: btn-press var(--spring-duration) var(--spring-ease); }
 
     .msg { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; animation: slideIn 0.3s ease; }
     .msg.me { align-items: flex-end; }
@@ -705,7 +749,7 @@
       }
       #momentsContent button#closeMomentsBtn, #favoritesContent button#closeFavoritesBtn { right: 12px; top: 12px; }
     }
-  </style>
+    </style>
 </head>
 <body>
 
@@ -857,6 +901,7 @@
     </div>
 
     <!-- 消息区 -->
+    <div class="messages-progress-wrap" id="messagesProgressWrap"><div class="messages-progress-bar" id="messagesProgressBar"></div></div>
     <div id="messagesArea"></div>
 
     <!-- 输入区 -->
@@ -943,6 +988,64 @@
   <div style="display:flex;justify-content:flex-end;margin-top:10px"><button id="filePanelSend" class="auth-btn" style="padding:8px 12px">发送所选</button></div>
 </div>
 
+<!-- 添加好友模态弹窗 -->
+<div class="image-modal" id="addFriendModal" style="padding:20px;">
+  <div style="position:relative; background:rgba(0,0,0,0.6); padding:20px; border-radius:10px; width:90%; max-width:500px;">
+    <button id="closeAddFriendBtn" title="关闭" style="position:absolute; right:12px; top:12px; background:transparent; border:none; color:var(--text); font-size:20px; cursor:pointer;">×</button>
+    <h3 style="margin:0 0 16px 0;">添加好友</h3>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label style="color:var(--muted); font-size:12px; margin-bottom:6px; display:block;">输入用户名</label>
+      <input type="text" id="addFriendInput" placeholder="输入好友用户名" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); color:var(--text); outline:none;">
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button id="confirmAddFriendBtn" class="unified-btn" style="flex:1;">添加</button>
+      <button id="cancelAddFriendBtn" class="unified-btn btn-ghost" style="flex:1;">取消</button>
+    </div>
+    <div id="addFriendMsg" style="margin-top:8px; color:var(--danger); font-size:12px;"></div>
+  </div>
+</div>
+
+<!-- 管理群聊模态弹窗 -->
+<div class="image-modal" id="manageGroupModal" style="padding:20px;">
+  <div style="position:relative; background:rgba(0,0,0,0.6); padding:20px; border-radius:10px; width:90%; max-width:600px;">
+    <button id="closeManageGroupBtn" title="关闭" style="position:absolute; right:12px; top:12px; background:transparent; border:none; color:var(--text); font-size:20px; cursor:pointer;">×</button>
+    <h3 id="manageGroupTitle" style="margin:0 0 16px 0;">管理群聊</h3>
+    <div id="groupMembersList" style="max-height:40vh; overflow:auto; margin-bottom:16px; padding:12px; background:rgba(255,255,255,0.02); border-radius:8px;"></div>
+    <div style="margin-bottom:16px;">
+      <label style="color:var(--muted); font-size:12px; margin-bottom:6px; display:block;">添加成员（输入用户名）</label>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="addMemberInput" placeholder="输入要添加的用户名" style="flex:1; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); color:var(--text); outline:none;">
+        <button id="confirmAddMemberBtn" class="unified-btn">添加</button>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button id="confirmManageGroupBtn" class="unified-btn" style="flex:1;">完成</button>
+    </div>
+    <div id="manageGroupMsg" style="margin-top:8px; color:var(--danger); font-size:12px;"></div>
+  </div>
+</div>
+
+<!-- 创建群聊模态弹窗 -->
+<div class="image-modal" id="createGroupModal" style="padding:20px;">
+  <div style="position:relative; background:rgba(0,0,0,0.6); padding:20px; border-radius:10px; width:90%; max-width:500px;">
+    <button id="closeCreateGroupBtn" title="关闭" style="position:absolute; right:12px; top:12px; background:transparent; border:none; color:var(--text); font-size:20px; cursor:pointer;">×</button>
+    <h3 style="margin:0 0 16px 0;">创建群聊 (需要密码)</h3>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label style="color:var(--muted); font-size:12px; margin-bottom:6px; display:block;">开发者密码</label>
+      <input type="password" id="createGroupPasswordInput" placeholder="输入密码" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); color:var(--text); outline:none;">
+    </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label style="color:var(--muted); font-size:12px; margin-bottom:6px; display:block;">群组名称</label>
+      <input type="text" id="createGroupNameInput" placeholder="输入群组名称" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); color:var(--text); outline:none;" disabled>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button id="confirmCreateGroupBtn" class="unified-btn" style="flex:1;" disabled>创建</button>
+      <button id="cancelCreateGroupBtn" class="unified-btn btn-ghost" style="flex:1;">取消</button>
+    </div>
+    <div id="createGroupMsg" style="margin-top:8px; color:var(--danger); font-size:12px;"></div>
+  </div>
+</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
   import { getDatabase, ref, push, onChildAdded, onValue, set, get, update, query, limitToLast } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
@@ -1009,6 +1112,30 @@
   const emojiPicker = document.getElementById('emojiPicker');
   const contactBtn = document.getElementById('contactBtn');
   const contactMenu = document.getElementById('contactMenu');
+  const messagesProgressBar = document.getElementById('messagesProgressBar');
+  const messagesProgressWrap = document.getElementById('messagesProgressWrap');
+  const addFriendModal = document.getElementById('addFriendModal');
+  const closeAddFriendBtn = document.getElementById('closeAddFriendBtn');
+  const confirmAddFriendBtn = document.getElementById('confirmAddFriendBtn');
+  const cancelAddFriendBtn = document.getElementById('cancelAddFriendBtn');
+  const addFriendInput = document.getElementById('addFriendInput');
+  const addFriendMsg = document.getElementById('addFriendMsg');
+  const manageGroupModal = document.getElementById('manageGroupModal');
+  const closeManageGroupBtn = document.getElementById('closeManageGroupBtn');
+  const confirmManageGroupBtn = document.getElementById('confirmManageGroupBtn');
+  const confirmAddMemberBtn = document.getElementById('confirmAddMemberBtn');
+  const addMemberInput = document.getElementById('addMemberInput');
+  const groupMembersList = document.getElementById('groupMembersList');
+  const manageGroupMsg = document.getElementById('manageGroupMsg');
+  const manageGroupTitle = document.getElementById('manageGroupTitle');
+  let currentManageGroupId = null;
+  const createGroupModal = document.getElementById('createGroupModal');
+  const closeCreateGroupBtn = document.getElementById('closeCreateGroupBtn');
+  const confirmCreateGroupBtn = document.getElementById('confirmCreateGroupBtn');
+  const cancelCreateGroupBtn = document.getElementById('cancelCreateGroupBtn');
+  const createGroupNameInput = document.getElementById('createGroupNameInput');
+  const createGroupPasswordInput = document.getElementById('createGroupPasswordInput');
+  const createGroupMsg = document.getElementById('createGroupMsg');
   
 
   // === 移动端菜单按钮 ===
@@ -1339,9 +1466,9 @@
     const bubbleDiv = document.createElement('div');
     bubbleDiv.className = 'msg-bubble';
 
-    // 如果消息被撤回
+    // 如果消息被撤回，直接跳过（不显示）
     if (msg.recalled) {
-      bubbleDiv.textContent = '已撤回';
+      return; // 直接消失，不显示任何内容
     } else {
       // 先添加内容
       if (msg.type === 'image' && msg.data) {
@@ -1413,12 +1540,77 @@
       }
     }
 
-    // 结构：如果是别人的消息，先显示用户名，再显示气泡；自己的消息只显示气泡
+    // 结构：如果是别人的消息，先显示头像、用户名和时间，再显示气泡；自己的消息显示时间和气泡
     if (msg.uid !== currentUser.uid) {
       const metaDiv = document.createElement('div');
       metaDiv.className = 'msg-meta';
-      metaDiv.textContent = msg.username || '未知用户';
+      metaDiv.style.display = 'flex';
+      metaDiv.style.alignItems = 'center';
+      metaDiv.style.gap = '8px';
+      metaDiv.style.marginBottom = '6px';
+      
+      // 头像
+      const avatarDiv = document.createElement('div');
+      avatarDiv.style.width = '28px';
+      avatarDiv.style.height = '28px';
+      avatarDiv.style.borderRadius = '50%';
+      avatarDiv.style.background = '#7b61ff';
+      avatarDiv.style.display = 'flex';
+      avatarDiv.style.alignItems = 'center';
+      avatarDiv.style.justifyContent = 'center';
+      avatarDiv.style.flexShrink = '0';
+      avatarDiv.style.overflow = 'hidden';
+      avatarDiv.style.color = '#fff';
+      avatarDiv.style.fontSize = '14px';
+      
+      if (msg.avatar) {
+        const img = document.createElement('img');
+        img.src = msg.avatar;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        avatarDiv.appendChild(img);
+      } else {
+        avatarDiv.textContent = '👤';
+      }
+      metaDiv.appendChild(avatarDiv);
+      
+      // 用户名和时间
+      const infoDiv = document.createElement('div');
+      infoDiv.style.display = 'flex';
+      infoDiv.style.alignItems = 'center';
+      infoDiv.style.gap = '8px';
+      
+      const usernameSpan = document.createElement('span');
+      usernameSpan.textContent = msg.username || '未知用户';
+      usernameSpan.style.fontWeight = '600';
+      usernameSpan.style.color = 'var(--text)';
+      infoDiv.appendChild(usernameSpan);
+      
+      if (msg.timestamp) {
+        const timeSpan = document.createElement('span');
+        const date = new Date(msg.timestamp);
+        const timeStr = date.toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        timeSpan.textContent = timeStr;
+        timeSpan.style.fontSize = '12px';
+        timeSpan.style.color = 'var(--text-secondary, rgba(255,255,255,0.5))';
+        infoDiv.appendChild(timeSpan);
+      }
+      metaDiv.appendChild(infoDiv);
       div.appendChild(metaDiv);
+    } else {
+      // 自己的消息也显示时间
+      const timeDiv = document.createElement('div');
+      timeDiv.style.fontSize = '12px';
+      timeDiv.style.color = 'var(--text-secondary, rgba(255,255,255,0.5))';
+      timeDiv.style.marginBottom = '6px';
+      timeDiv.style.textAlign = 'right';
+      if (msg.timestamp) {
+        const date = new Date(msg.timestamp);
+        const timeStr = date.toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        timeDiv.textContent = timeStr;
+        div.appendChild(timeDiv);
+      }
     }
 
     // 操作按钮：收藏、撤回（自己的消息）
@@ -1429,6 +1621,7 @@
 
     // 收藏按钮
     const favBtn = document.createElement('button');
+    favBtn.className = 'unified-btn btn-icon';
     favBtn.textContent = `☆ ${msg.favorites ? msg.favorites.length : 0}`;
     favBtn.style.fontSize = '12px';
     favBtn.addEventListener('click', async (e) => {
@@ -1446,6 +1639,7 @@
     // 撤回（仅作者可见）
     if (msg.uid === currentUser.uid && !msg.recalled) {
       const recallBtn = document.createElement('button');
+      recallBtn.className = 'unified-btn btn-ghost';
       recallBtn.textContent = '撤回';
       recallBtn.style.fontSize = '12px';
       recallBtn.addEventListener('click', (e) => {
@@ -1465,8 +1659,16 @@
 
     div.appendChild(bubbleDiv);
     div.appendChild(actionBar);
+    // 新消息气泡添加 Q 弹动画
+    try {
+      if (bubbleDiv) {
+        bubbleDiv.classList.add('pop');
+        bubbleDiv.addEventListener('animationend', function(){ bubbleDiv.classList.remove('pop'); }, { once: true });
+      }
+    } catch(e) {}
     messagesArea.appendChild(div);
     messagesArea.scrollTop = messagesArea.scrollHeight;
+    try { updateMessagesProgress(); } catch(e){}
     // 桌面通知：来自他人的消息触发通知（请求权限将在登录时发起）
     try {
       if (msg && msg.uid && currentUser && msg.uid !== currentUser.uid) {
@@ -1537,6 +1739,7 @@
         d.innerHTML = `<div style="font-weight:600">${it.msg.username || '未知'}</div><div style="font-size:13px;margin:6px 0">${escapeHtml(textPreview)}</div>`;
 
         const goto = document.createElement('button');
+        goto.className = 'unified-btn';
         goto.textContent = '跳转';
         goto.style.marginRight = '8px';
         goto.addEventListener('click', () => {
@@ -1545,6 +1748,7 @@
         });
 
         const unfav = document.createElement('button');
+        unfav.className = 'unified-btn btn-ghost';
         unfav.textContent = '取消收藏';
         unfav.addEventListener('click', async () => {
           const favRef = ref(db, `chats/${it.chatId}/messages/${it.key}/favorites`);
@@ -1607,10 +1811,18 @@
     push(ref(db, `chats/${currentChatId}/messages`), {
       uid: currentUser.uid,
       username: currentUser.username,
+      avatar: currentUser.avatar,
       text,
       type: 'text',
+      timestamp: Date.now(),
       time: Date.now()
     });
+
+    // 发送按钮弹动反馈
+    try {
+      sendBtn.classList.add('pushed');
+      sendBtn.addEventListener('animationend', function(){ sendBtn.classList.remove('pushed'); }, { once: true });
+    } catch(e) {}
 
     msgInput.value = '';
     autoResizeInput();
@@ -1625,6 +1837,18 @@
 
   msgInput.addEventListener('input', autoResizeInput);
 
+  // 消息区滚动进度条更新
+  function updateMessagesProgress() {
+    if (!messagesArea || !messagesProgressBar) return;
+    const el = messagesArea;
+    const max = el.scrollHeight - el.clientHeight;
+    const pct = max <= 0 ? 0 : (el.scrollTop / max) * 100;
+    messagesProgressBar.style.width = pct + '%';
+  }
+  messagesArea.addEventListener('scroll', updateMessagesProgress);
+  messagesArea.addEventListener('wheel', () => { requestAnimationFrame(updateMessagesProgress); }, { passive: true });
+  window.addEventListener('resize', updateMessagesProgress);
+
   // === 图片上传 ===
   uploadImgBtn.addEventListener('click', () => imgInput.click());
   imgInput.addEventListener('change', (e) => {
@@ -1636,8 +1860,10 @@
       push(ref(db, `chats/${currentChatId}/messages`), {
         uid: currentUser.uid,
         username: currentUser.username,
+        avatar: currentUser.avatar,
         type: 'image',
         data: reader.result,
+        timestamp: Date.now(),
         time: Date.now()
       });
       imgInput.value = '';
@@ -1656,9 +1882,11 @@
       push(ref(db, `chats/${currentChatId}/messages`), {
         uid: currentUser.uid,
         username: currentUser.username,
+        avatar: currentUser.avatar,
         type: 'video',
         data: reader.result,
         fileName: file.name,
+        timestamp: Date.now(),
         time: Date.now()
       });
       videoInput.value = '';
@@ -1673,8 +1901,10 @@
     push(ref(db, `chats/${currentChatId}/messages`), {
       uid: currentUser.uid,
       username: currentUser.username,
+      avatar: currentUser.avatar,
       type: 'gif',
       url,
+      timestamp: Date.now(),
       time: Date.now()
     });
   });
@@ -1693,10 +1923,12 @@
       push(ref(db, `chats/${currentChatId}/messages`), {
         uid: currentUser.uid,
         username: currentUser.username,
+        avatar: currentUser.avatar,
         type: 'location',
         lat,
         lon,
         mapsUrl,
+        timestamp: Date.now(),
         time: Date.now()
       });
       locationBtn.disabled = false;
@@ -1717,9 +1949,11 @@
       push(ref(db, `chats/${currentChatId}/messages`), {
         uid: currentUser.uid,
         username: currentUser.username,
+        avatar: currentUser.avatar,
         type: 'file',
         fileUrl: reader.result,
         fileName: file.name,
+        timestamp: Date.now(),
         time: Date.now()
       });
       fileInput.value = '';
@@ -1775,9 +2009,9 @@
           actionsDiv.style.gap = '6px';
 
           const delBtn = document.createElement('button');
+          delBtn.className = 'unified-btn btn-ghost';
           delBtn.textContent = '删除';
           delBtn.title = '删除好友';
-          delBtn.className = 'icon-btn-small unified-btn';
           delBtn.addEventListener('click', (ev) => {
             ev.stopPropagation();
             if (!confirm('确定删除好友 ' + friend.username + ' 吗？')) return;
@@ -1941,26 +2175,89 @@
     }
   }
 
-  // 创建新群组
+  // 创建新群组（使用 UI 弹窗，需要正确密码）
   document.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'createGroupBtn') {
-      createGroup();
+      if (!currentUser || currentUser.isAnonymous) { alert('请先登录'); return; }
+      createGroupNameInput.value = '';
+      createGroupPasswordInput.value = '';
+      createGroupMsg.textContent = '';
+      confirmCreateGroupBtn.disabled = true;
+      createGroupNameInput.disabled = true;
+      createGroupModal.classList.add('show');
     }
   });
 
-  async function createGroup() {
-    if (!currentUser || currentUser.isAnonymous) { alert('请先登录'); return; }
-    const name = prompt('请输入新群组名称：');
-    if (!name) return;
+  closeCreateGroupBtn.addEventListener('click', () => {
+    createGroupModal.classList.remove('show');
+  });
+
+  cancelCreateGroupBtn.addEventListener('click', () => {
+    createGroupModal.classList.remove('show');
+  });
+
+  createGroupModal.addEventListener('click', () => {
+    createGroupModal.classList.remove('show');
+  });
+
+  createGroupModal.querySelector('div').addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  // 密码验证实时检查
+  createGroupPasswordInput.addEventListener('input', (e) => {
+    const password = e.target.value;
+    const isCorrect = password === '201379';
+    
+    createGroupNameInput.disabled = !isCorrect;
+    confirmCreateGroupBtn.disabled = !isCorrect;
+    
+    if (isCorrect) {
+      createGroupMsg.style.color = '#39d7ff';
+      createGroupMsg.textContent = '✓ 密码正确，可以创建群聊';
+    } else {
+      createGroupMsg.style.color = 'var(--danger)';
+      createGroupMsg.textContent = password.length > 0 ? '✗ 密码错误' : '';
+    }
+  });
+
+  confirmCreateGroupBtn.addEventListener('click', async () => {
+    const name = createGroupNameInput.value.trim();
+    const password = '201379';
+    
+    if (!name) {
+      createGroupMsg.style.color = 'var(--danger)';
+      createGroupMsg.textContent = '请输入群组名称';
+      return;
+    }
+
     try {
       const newRef = push(ref(db, 'groups'));
-      await set(newRef, { name, createdBy: currentUser.uid, members: [currentUser.uid], createdAt: Date.now() });
-      await loadGroups();
-      alert('群组已创建');
+      await set(newRef, {
+        name,
+        password,
+        createdBy: currentUser.uid,
+        members: [currentUser.uid],
+        createdAt: Date.now()
+      });
+
+      createGroupMsg.style.color = '#39d7ff';
+      createGroupMsg.textContent = '群组已创建';
+      setTimeout(() => {
+        createGroupModal.classList.remove('show');
+        loadGroups();
+      }, 1000);
     } catch (err) {
-      alert('创建失败：' + err.message);
+      createGroupMsg.style.color = 'var(--danger)';
+      createGroupMsg.textContent = '创建失败：' + err.message;
     }
-  }
+  });
+
+  createGroupPasswordInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !confirmCreateGroupBtn.disabled) {
+      confirmCreateGroupBtn.click();
+    }
+  });
 
   // 打开群聊
   function openGroupChat(gid, groupName) {
@@ -2015,48 +2312,71 @@
     } catch (err) { alert('退出失败：' + err.message); }
   }
 
-  // 管理群成员（群主权限）
+  // 管理群成员（群主权限）弹窗版本
   async function manageGroup(gid) {
     try {
       const gSnap = await get(ref(db, `groups/${gid}`));
       const g = gSnap.val() || {};
       if (g.createdBy !== currentUser.uid) { alert('只有群主可以管理成员'); return; }
+
+      currentManageGroupId = gid;
+      manageGroupTitle.textContent = `管理群聊 - ${g.name || ('群组 ' + gid)}`;
+      addMemberInput.value = '';
+      manageGroupMsg.textContent = '';
+      groupMembersList.innerHTML = '';
+
       const members = g.members || [];
       // 拉取成员用户名
       const names = await Promise.all(members.map(async (mid) => {
         const s = await get(ref(db, `users/${mid}`));
         return s.exists() ? s.val().username : mid;
       }));
-      const list = members.map((m, i) => `${i+1}. ${names[i]} (${m})`).join('\n');
-      const action = prompt(`成员列表：\n${list}\n\n输入 'remove:UID' 删除成员，或 'add:username' 添加成员，留空取消`);
-      if (!action) return;
-      if (action.startsWith('remove:')) {
-        const uid = action.split(':')[1].trim();
-        const idx = members.indexOf(uid);
-        if (idx === -1) return alert('成员不存在');
-        members.splice(idx, 1);
-        await update(ref(db, `groups/${gid}`), { members });
-        alert('已移除成员');
-      } else if (action.startsWith('add:')) {
-        const uname = action.split(':')[1].trim();
-        if (!uname) return;
-        // 根据用户名查找 uid
-        const usersSnap = await get(ref(db, 'users'));
-        const users = usersSnap.val() || {};
-        let found = null;
-        for (const uid in users) { if (users[uid].username === uname) { found = uid; break; } }
-        if (!found) return alert('用户不存在');
-        if (!members.includes(found)) members.push(found);
-        await update(ref(db, `groups/${gid}`), { members });
-        // 同步用户的 groups 列表
-        const myGroupsRef = ref(db, `users/${found}/groups`);
-        const mg = (await get(myGroupsRef)).val() || [];
-        if (!mg.includes(gid)) mg.push(gid);
-        await update(ref(db, `users/${found}`), { groups: mg });
-        alert('已添加成员');
-      }
-      await loadGroups();
-    } catch (err) { alert('管理失败：' + err.message); }
+
+      // 渲染成员列表
+      members.forEach((mid, i) => {
+        const item = document.createElement('div');
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.justifyContent = 'space-between';
+        item.style.padding = '8px';
+        item.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = `${i + 1}. ${names[i]}`;
+        item.appendChild(nameSpan);
+
+        if (mid !== currentUser.uid) {
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'unified-btn btn-ghost';
+          removeBtn.textContent = '移除';
+          removeBtn.style.fontSize = '12px';
+          removeBtn.style.padding = '4px 8px';
+          removeBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!confirm(`确定移除成员 ${names[i]} 吗？`)) return;
+            const idx = members.indexOf(mid);
+            if (idx !== -1) members.splice(idx, 1);
+            await update(ref(db, `groups/${gid}`), { members });
+            // 更新该用户的 groups 列表
+            const userSnap = await get(ref(db, `users/${mid}`));
+            const uData = userSnap.val() || {};
+            const userGroups = uData.groups || [];
+            const gIdx = userGroups.indexOf(gid);
+            if (gIdx !== -1) userGroups.splice(gIdx, 1);
+            await update(ref(db, `users/${mid}`), { groups: userGroups });
+            // 刷新列表
+            manageGroup(gid);
+          });
+          item.appendChild(removeBtn);
+        }
+
+        groupMembersList.appendChild(item);
+      });
+
+      manageGroupModal.classList.add('show');
+    } catch (err) {
+      alert('打开管理面板失败：' + err.message);
+    }
   }
 
   function openChat(friendId, friendName) {
@@ -2100,11 +2420,41 @@
     });
   }
 
+  // 添加好友弹窗事件
   addFriendBtn.addEventListener('click', () => {
-    const friendUsername = prompt('输入好友用户名：');
-    if (!friendUsername) return;
+    addFriendInput.value = '';
+    addFriendMsg.textContent = '';
+    addFriendModal.classList.add('show');
+  });
 
-    get(ref(db, 'users')).then(snapshot => {
+  closeAddFriendBtn.addEventListener('click', () => {
+    addFriendModal.classList.remove('show');
+  });
+
+  cancelAddFriendBtn.addEventListener('click', () => {
+    addFriendModal.classList.remove('show');
+  });
+
+  addFriendModal.addEventListener('click', () => {
+    addFriendModal.classList.remove('show');
+  });
+
+  addFriendModal.querySelector('div').addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  confirmAddFriendBtn.addEventListener('click', async () => {
+    const friendUsername = addFriendInput.value.trim();
+    addFriendMsg.textContent = '';
+    addFriendMsg.style.color = 'var(--danger)';
+
+    if (!friendUsername) {
+      addFriendMsg.textContent = '请输入用户名';
+      return;
+    }
+
+    try {
+      const snapshot = await get(ref(db, 'users'));
       const users = snapshot.val() || {};
       let friendId = null;
 
@@ -2116,48 +2466,54 @@
       }
 
       if (!friendId) {
-        alert('用户不存在');
+        addFriendMsg.textContent = '用户不存在';
         return;
       }
 
       if (friendId === currentUser.uid) {
-        alert('不能添加自己');
+        addFriendMsg.textContent = '不能添加自己';
         return;
       }
 
-      // 检查是否已是好友
-      get(ref(db, `users/${currentUser.uid}`)).then(snapshot => {
-        const userData = snapshot.val();
-        const friends = userData?.friends || [];
+      const userData = (await get(ref(db, `users/${currentUser.uid}`))).val();
+      const friends = userData?.friends || [];
 
-        if (friends.includes(friendId)) {
-          alert('已是好友');
-          return;
-        }
+      if (friends.includes(friendId)) {
+        addFriendMsg.textContent = '已是好友';
+        return;
+      }
 
-        // 发送好友申请
-        const requests = userData?.friendRequests || [];
-        if (requests.includes(friendId)) {
-          alert('已发送申请，请等待对方同意');
-          return;
-        }
+      const requests = userData?.friendRequests || [];
+      if (requests.includes(friendId)) {
+        addFriendMsg.textContent = '已发送申请，请等待对方同意';
+        return;
+      }
 
-        requests.push(friendId);
-        update(ref(db, `users/${currentUser.uid}`), { friendRequests: requests });
+      requests.push(friendId);
+      await update(ref(db, `users/${currentUser.uid}`), { friendRequests: requests });
 
-        // 同时在对方的待收列表中添加
-        get(ref(db, `users/${friendId}`)).then(friendSnapshot => {
-          const friendData = friendSnapshot.val();
-          const pendingRequests = friendData?.pendingFriendRequests || [];
-          if (!pendingRequests.includes(currentUser.uid)) {
-            pendingRequests.push(currentUser.uid);
-            update(ref(db, `users/${friendId}`), { pendingFriendRequests: pendingRequests });
-          }
-        });
+      const friendData = (await get(ref(db, `users/${friendId}`))).val();
+      const pendingRequests = friendData?.pendingFriendRequests || [];
+      if (!pendingRequests.includes(currentUser.uid)) {
+        pendingRequests.push(currentUser.uid);
+        await update(ref(db, `users/${friendId}`), { pendingFriendRequests: pendingRequests });
+      }
 
-        alert('申请已发送！');
-      });
-    });
+      addFriendMsg.style.color = '#39d7ff';
+      addFriendMsg.textContent = '申请已发送！';
+      setTimeout(() => {
+        addFriendMsg.style.color = 'var(--danger)';
+        addFriendModal.classList.remove('show');
+      }, 1200);
+    } catch (err) {
+      addFriendMsg.textContent = '发送失败：' + err.message;
+    }
+  });
+
+  addFriendInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      confirmAddFriendBtn.click();
+    }
   });
 
   // === 加载待收的好友申请 ===
@@ -2337,7 +2693,9 @@
       await push(ref(db, 'moments'), {
         uid: currentUser.uid,
         username: currentUser.username,
+        avatar: currentUser.avatar,
         text,
+        timestamp: Date.now(),
         time: Date.now(),
         likes: []
       });
@@ -2362,6 +2720,7 @@
       div.style.padding = '8px 0';
       div.innerHTML = `<div style="font-weight:600">${item.username}</div><div style="font-size:13px; margin:6px 0">${item.text}</div>`;
       const likeBtn = document.createElement('button');
+      likeBtn.className = 'unified-btn btn-icon';
       likeBtn.textContent = `👍 ${item.likes ? item.likes.length : 0}`;
       likeBtn.style.fontSize = '12px';
       likeBtn.addEventListener('click', async () => {
@@ -2470,8 +2829,10 @@
           push(ref(db, `chats/${currentChatId}/messages`), {
             uid: currentUser.uid,
             username: currentUser.username,
+            avatar: currentUser.avatar,
             type: 'audio',
             data: reader.result,
+            timestamp: Date.now(),
             time: Date.now()
           });
         };
@@ -2571,10 +2932,12 @@
 
         const actions = document.createElement('div');
         const accept = document.createElement('button');
+        accept.className = 'unified-btn';
         accept.textContent = '同意';
         accept.style.marginRight = '6px';
         accept.addEventListener('click', () => acceptPendingRequest(requesterId));
         const reject = document.createElement('button');
+        reject.className = 'unified-btn btn-ghost';
         reject.textContent = '拒绝';
         reject.addEventListener('click', () => rejectPendingRequest(requesterId));
         actions.appendChild(accept);
@@ -2698,6 +3061,87 @@
     chatPanel.classList.remove('active');
     messagesArea.innerHTML = '';
     alert('账号已删除');
+  });
+
+  // 管理群聊弹窗事件
+  closeManageGroupBtn.addEventListener('click', () => {
+    manageGroupModal.classList.remove('show');
+  });
+
+  manageGroupModal.addEventListener('click', () => {
+    manageGroupModal.classList.remove('show');
+  });
+
+  manageGroupModal.querySelector('div').addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  confirmAddMemberBtn.addEventListener('click', async () => {
+    const uname = addMemberInput.value.trim();
+    manageGroupMsg.textContent = '';
+    manageGroupMsg.style.color = 'var(--danger)';
+
+    if (!uname) {
+      manageGroupMsg.textContent = '请输入用户名';
+      return;
+    }
+
+    try {
+      const gSnap = await get(ref(db, `groups/${currentManageGroupId}`));
+      const g = gSnap.val() || {};
+      const members = g.members || [];
+
+      const usersSnap = await get(ref(db, 'users'));
+      const users = usersSnap.val() || {};
+      let found = null;
+      for (const uid in users) {
+        if (users[uid].username === uname) {
+          found = uid;
+          break;
+        }
+      }
+
+      if (!found) {
+        manageGroupMsg.textContent = '用户不存在';
+        return;
+      }
+
+      if (members.includes(found)) {
+        manageGroupMsg.textContent = '该用户已在群内';
+        return;
+      }
+
+      members.push(found);
+      await update(ref(db, `groups/${currentManageGroupId}`), { members });
+
+      // 同步用户的 groups 列表
+      const userSnap = await get(ref(db, `users/${found}`));
+      const uData = userSnap.val() || {};
+      const userGroups = uData.groups || [];
+      if (!userGroups.includes(currentManageGroupId)) {
+        userGroups.push(currentManageGroupId);
+        await update(ref(db, `users/${found}`), { groups: userGroups });
+      }
+
+      manageGroupMsg.style.color = '#39d7ff';
+      manageGroupMsg.textContent = '已添加成员';
+      addMemberInput.value = '';
+      // 刷新列表
+      manageGroup(currentManageGroupId);
+    } catch (err) {
+      manageGroupMsg.textContent = '添加失败：' + err.message;
+    }
+  });
+
+  confirmManageGroupBtn.addEventListener('click', async () => {
+    manageGroupModal.classList.remove('show');
+    await loadGroups();
+  });
+
+  addMemberInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      confirmAddMemberBtn.click();
+    }
   });
 
   initEmojiPicker();
